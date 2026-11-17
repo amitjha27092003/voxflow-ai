@@ -23,8 +23,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[#F8FAFC] text-slate-900 antialiased selection:bg-emerald-100 selection:text-emerald-900">
-        {children}
+      <body className="min-h-screen bg-[#F5F7FB] text-slate-900 antialiased selection:bg-emerald-100 selection:text-emerald-900 relative overflow-x-hidden">
+        {/* Living Ambient Mesh Gradients (Emerald-500/10 and Indigo-500/10) */}
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          <div className="absolute -top-32 left-1/4 w-[600px] h-[400px] rounded-full bg-emerald-500/10 blur-[130px]" />
+          <div className="absolute -top-40 right-1/4 w-[550px] h-[420px] rounded-full bg-indigo-500/10 blur-[140px]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-teal-500/5 blur-[160px]" />
+        </div>
+        <div className="relative z-10">
+          {children}
+        </div>
       </body>
     </html>
   );

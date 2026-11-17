@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ onResetData, isListening }) => {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 sm:px-6 transition-all">
+    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-4 py-3 sm:px-6 transition-all shadow-[0_1px_10px_rgba(15,23,42,0.03)]">
       <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
         {/* Brand & Subtitle */}
         <div className="flex items-center gap-3">
@@ -48,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({ onResetData, isListening }) => {
         {/* Controls */}
         <div className="flex items-center gap-2">
           {resetSuccess ? (
-            <span className="hidden sm:inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 font-medium">
+            <span className="hidden sm:inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 font-medium animate-float-in">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Demo Reset Complete
             </span>
           ) : null}
@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({ onResetData, isListening }) => {
           <button
             onClick={() => setShowConfirm(true)}
             title="Reset Demo Data"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs active:scale-95 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs active:scale-[0.98] transition duration-150"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
             <span className="hidden xs:inline">Reset Demo</span>
@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({ onResetData, isListening }) => {
       {/* Confirmation Modal in 100% Modern English */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-base font-bold text-slate-900">
               Reset Demo State?
             </h3>
@@ -77,13 +77,13 @@ export const Header: React.FC<HeaderProps> = ({ onResetData, isListening }) => {
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 onClick={() => setShowConfirm(false)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl active:scale-[0.98] transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReset}
-                className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition"
+                className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs active:scale-[0.98] transition"
               >
                 Confirm Reset
               </button>

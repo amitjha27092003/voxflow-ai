@@ -92,7 +92,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
   return (
     <div className="space-y-4">
       {/* Controls Bar */}
-      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+      <div className="bg-white/90 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         {/* Search */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -101,7 +101,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search catalog by name, category, or alias..."
-            className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition"
+            className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-slate-50/80 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition"
           />
         </div>
 
@@ -110,7 +110,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
           <button
             onClick={handleShareRateListWhatsApp}
             title="Broadcast Store Price List to Customers on WhatsApp"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-2xs transition active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-2xs transition active:scale-[0.98]"
           >
             <Share2 className="w-3.5 h-3.5 text-emerald-600" />
             <span className="hidden sm:inline">Share Rate-List</span>
@@ -118,7 +118,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
 
           <button
             onClick={() => setOnlyLowStock(!onlyLowStock)}
-            className={`px-3 py-2 text-xs font-semibold rounded-xl border transition flex items-center gap-1.5 ${
+            className={`px-3 py-2 text-xs font-semibold rounded-xl border transition active:scale-[0.98] flex items-center gap-1.5 ${
               onlyLowStock
                 ? "bg-amber-500 text-white border-amber-600 shadow-xs"
                 : "bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100/80"
@@ -130,138 +130,115 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 shadow-xs transition active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs active:scale-[0.98] transition"
           >
-            <PlusCircle className="w-4 h-4" />
-            <span className="hidden xs:inline">Add Product</span>
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Add Product SKU</span>
           </button>
         </div>
       </div>
 
-      {/* Low Stock Banner */}
+      {/* Low Stock Warning Banner with WhatsApp Restock CTA */}
       {lowStockItems.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 text-xs sm:text-sm">
+        <div className="bg-amber-50/90 backdrop-blur-sm border border-amber-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-float-in">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-200/70 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-4 h-4 text-amber-800" />
+            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold">{lowStockItems.length} products require restocking.</span>{" "}
-              <span className="text-amber-800 hidden sm:inline">
-                Current inventory is at or below 5 units.
-              </span>
+              <h4 className="text-xs sm:text-sm font-bold text-amber-900">
+                Low Inventory Alert: {lowStockItems.length} Products Need Restocking
+              </h4>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Items with 5 or fewer units in stock:{" "}
+                <span className="font-semibold">
+                  {lowStockItems.map((i) => `${i.name} (${i.stock} ${i.unit})`).join(", ")}
+                </span>
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <button
-              onClick={handleOrderLowStockWhatsApp}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-2xs active:scale-95"
-              title="Send Wholesale Purchase Order to Distributor on WhatsApp"
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              <span>Order Low Stock via WhatsApp</span>
-            </button>
-            {!onlyLowStock && (
-              <button
-                onClick={() => setOnlyLowStock(true)}
-                className="px-3 py-1.5 bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-bold rounded-xl text-xs transition"
-              >
-                Filter
-              </button>
-            )}
-          </div>
+
+          <button
+            onClick={handleOrderLowStockWhatsApp}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs active:scale-[0.98] transition shrink-0"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            Order Low Stock via WhatsApp
+          </button>
         </div>
       )}
 
-      {/* Product Grid */}
+      {/* Inventory Grid */}
       {filteredInventory.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/90 shadow-xs">
+        <div className="bg-white/90 backdrop-blur-md p-12 rounded-3xl border border-dashed border-slate-300 text-center">
           <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-sm font-bold text-slate-800">No Products Found</h3>
-          <p className="text-xs text-slate-400 mt-1">
-            {onlyLowStock
-              ? "All products have healthy inventory levels."
-              : "Click 'Add Product' to create a new SKU."}
-          </p>
+          <h3 className="text-sm font-bold text-slate-700">No Catalog Items Match</h3>
+          <p className="text-xs text-slate-400 mt-1">Try another search or register a new product SKU.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredInventory.map((item) => {
             const isLow = item.stock <= 5;
             return (
               <div
                 key={item.id}
-                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all shadow-xs flex flex-col justify-between ${
-                  isLow
-                    ? "border-amber-300 ring-2 ring-amber-400/20 bg-amber-50/15"
-                    : "border-slate-200/90 hover:border-slate-300"
+                className={`bg-white/90 backdrop-blur-md rounded-2xl p-4 border transition-all duration-300 shadow-xs hover:border-slate-300 hover:shadow-md ${
+                  isLow ? "border-amber-200/90 bg-amber-50/20" : "border-slate-200/80"
                 }`}
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                      <Tag className="w-3 h-3 text-slate-400" />
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 mb-1.5">
                       {item.category || "General"}
                     </span>
-                    {isLow && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                        <AlertTriangle className="w-3 h-3" />
-                        Low Stock
-                      </span>
-                    )}
+                    <h4 className="font-bold text-sm sm:text-base text-slate-900 leading-snug">
+                      {item.name}
+                    </h4>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      Standard unit: <span className="font-medium text-slate-600">{item.unit}</span>
+                    </div>
                   </div>
 
-                  <h4 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-snug">
-                    {item.name}
-                  </h4>
-
-                  <div className="mt-3 flex items-baseline justify-between">
-                    <div>
-                      <span className="text-[11px] text-slate-400">Unit Price</span>
-                      <div className="text-base sm:text-lg font-extrabold text-slate-900 font-sans">
-                        ₹{item.unitPrice}{" "}
-                        <span className="text-xs font-normal text-slate-400">
-                          / {item.unit}
-                        </span>
-                      </div>
+                  <div className="text-right">
+                    <div className="text-sm sm:text-base font-extrabold text-slate-900 font-sans tabular-nums">
+                      ₹{item.unitPrice}
                     </div>
-
-                    <div className="text-right">
-                      <span className="text-[11px] text-slate-400">In Stock</span>
-                      <div
-                        className={`text-base sm:text-lg font-extrabold font-sans ${
-                          isLow ? "text-amber-600" : "text-slate-800"
-                        }`}
-                      >
-                        {item.stock}{" "}
-                        <span className="text-xs font-normal text-slate-400">
-                          {item.unit}
-                        </span>
-                      </div>
-                    </div>
+                    <span className="text-[10px] text-slate-400">per {item.unit}</span>
                   </div>
                 </div>
 
-                {/* Stock Quick Adjustment */}
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <span className="text-xs text-slate-400 font-medium">Quick Adjust:</span>
-                  <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                {/* Stock Level Control */}
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded-lg border tabular-nums ${
+                        isLow
+                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      }`}
+                    >
+                      {item.stock} {item.unit} in stock
+                    </span>
+                    {isLow && (
+                      <span className="text-[10px] text-amber-600 font-semibold">Low</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => onUpdateStock(item.id, -1)}
-                      title="Decrease stock by 1"
-                      className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-xs transition active:scale-95"
+                      disabled={item.stock <= 0}
+                      className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold disabled:opacity-30 active:scale-[0.98] transition"
+                      title="Decrease stock count"
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="text-xs font-bold px-1.5 text-slate-800 min-w-[20px] text-center">
-                      {item.stock}
-                    </span>
                     <button
                       onClick={() => onUpdateStock(item.id, 1)}
-                      title="Increase stock by 1"
-                      className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-xs transition active:scale-95"
+                      className="w-7 h-7 rounded-lg bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center font-bold active:scale-[0.98] transition"
+                      title="Add stock count"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -271,10 +248,10 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
         </div>
       )}
 
-      {/* Add Catalog Item Modal */}
+      {/* Add Product Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-slate-900">Add Product SKU</h3>
               <button
@@ -363,13 +340,13 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl active:scale-[0.98] transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs"
+                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs active:scale-[0.98] transition"
                 >
                   Save Product
                 </button>

@@ -58,7 +58,7 @@ export const UPIQRModal: React.FC<UPIQRModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-[0.98]"
           >
             <X className="w-5 h-5" />
           </button>
@@ -71,11 +71,11 @@ export const UPIQRModal: React.FC<UPIQRModalProps> = ({
           </div>
           <div className="text-base font-bold text-slate-900 mt-0.5">{customerName}</div>
 
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 my-2 font-sans">
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 my-2 font-sans tabular-nums">
             ₹{validAmount.toLocaleString("en-IN")}
           </div>
 
-          {/* QR Code Container */}
+          {/* QR Code Container with subtle glow */}
           <div className="relative mx-auto my-3 w-56 h-56 bg-white p-3 rounded-2xl border-2 border-slate-900/10 shadow-sm flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -100,7 +100,7 @@ export const UPIQRModal: React.FC<UPIQRModalProps> = ({
             </div>
             <button
               onClick={handleCopy}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs active:scale-95 transition"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs active:scale-[0.98] transition"
             >
               {copied ? (
                 <>
@@ -121,14 +121,14 @@ export const UPIQRModal: React.FC<UPIQRModalProps> = ({
         <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
           <a
             href={upiUrl}
-            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition active:scale-95"
+            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition active:scale-[0.98]"
           >
             <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
             Pay in UPI App
           </a>
           <button
             onClick={onClose}
-            className="py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+            className="py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition active:scale-[0.98]"
           >
             Done
           </button>

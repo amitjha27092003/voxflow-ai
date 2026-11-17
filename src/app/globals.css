@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #F8FAFC;
-  --foreground: #0F172A;
+  --background: #F5F7FB;
+  --foreground: #0B132B;
 }
 
 body {
@@ -15,7 +15,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbars */
+/* Custom sleek scrollbars */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -40,64 +40,96 @@ body {
   scrollbar-width: none;
 }
 
-/* Sleek Audio Waveform Animation */
-@keyframes waveBar {
-  0%, 100% {
-    height: 6px;
-  }
-  50% {
-    height: 24px;
-  }
-}
-
-.wave-bar-1 {
-  animation: waveBar 0.9s ease-in-out infinite 0.1s;
-}
-.wave-bar-2 {
-  animation: waveBar 0.7s ease-in-out infinite 0.25s;
-}
-.wave-bar-3 {
-  animation: waveBar 1.1s ease-in-out infinite 0.05s;
-}
-.wave-bar-4 {
-  animation: waveBar 0.8s ease-in-out infinite 0.35s;
-}
-.wave-bar-5 {
-  animation: waveBar 1.0s ease-in-out infinite 0.15s;
-}
-.wave-bar-6 {
-  animation: waveBar 0.75s ease-in-out infinite 0.3s;
-}
-
-/* Pulse animation for voice trigger */
-@keyframes subtlePulse {
+/* Micro-Animations: Pulse Ring for Living Voice Orb */
+@keyframes voicePulseRing {
   0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
   }
   70% {
-    box-shadow: 0 0 0 14px rgba(16, 185, 129, 0);
+    transform: scale(1);
+    box-shadow: 0 0 0 16px rgba(16, 185, 129, 0);
   }
   100% {
+    transform: scale(0.95);
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
   }
 }
 
-@keyframes listeningPulse {
+@keyframes listeningOrbGlow {
   0% {
-    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5);
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7), 0 0 25px rgba(244, 63, 94, 0.4);
+    transform: scale(0.98);
   }
-  70% {
-    box-shadow: 0 0 0 18px rgba(244, 63, 94, 0);
+  50% {
+    box-shadow: 0 0 0 20px rgba(244, 63, 94, 0), 0 0 40px rgba(244, 63, 94, 0.6);
+    transform: scale(1.03);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0);
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0), 0 0 25px rgba(244, 63, 94, 0.4);
+    transform: scale(0.98);
   }
 }
 
 .animate-voice-idle {
-  animation: subtlePulse 2.8s infinite;
+  animation: voicePulseRing 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .animate-voice-listening {
-  animation: listeningPulse 1.2s infinite ease-in-out;
+  animation: listeningOrbGlow 1.4s ease-in-out infinite;
+}
+
+/* 7-Bar Dynamic Equalizer Bars */
+@keyframes eqBarPulse {
+  0%, 100% {
+    height: 4px;
+    opacity: 0.6;
+  }
+  50% {
+    height: 24px;
+    opacity: 1;
+  }
+}
+
+.eq-bar-1 { animation: eqBarPulse 0.85s ease-in-out infinite 0.1s; }
+.eq-bar-2 { animation: eqBarPulse 0.65s ease-in-out infinite 0.25s; }
+.eq-bar-3 { animation: eqBarPulse 1.05s ease-in-out infinite 0.05s; }
+.eq-bar-4 { animation: eqBarPulse 0.75s ease-in-out infinite 0.35s; }
+.eq-bar-5 { animation: eqBarPulse 0.95s ease-in-out infinite 0.15s; }
+.eq-bar-6 { animation: eqBarPulse 0.7s ease-in-out infinite 0.3s; }
+.eq-bar-7 { animation: eqBarPulse 1.1s ease-in-out infinite 0.2s; }
+
+/* Tactile Spring Slide Down for Newly Added Transaction Cards */
+@keyframes slideDownSpring {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.97);
+  }
+  60% {
+    transform: translateY(2px) scale(1.005);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-down-spring {
+  animation: slideDownSpring 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Float In Animation for AI Insights & Toasts */
+@keyframes floatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float-in {
+  animation: floatIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

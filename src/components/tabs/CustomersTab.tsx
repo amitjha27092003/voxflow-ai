@@ -104,7 +104,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   return (
     <div className="space-y-4">
       {/* Controls Bar */}
-      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+      <div className="bg-white/90 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         {/* Search Input */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -113,16 +113,16 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search customers by name or phone..."
-            className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition"
+            className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-slate-50/80 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition"
           />
         </div>
 
         {/* Filter Pills & Add Customer Button */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
+          <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl text-xs">
             <button
               onClick={() => setFilterBalance("ALL")}
-              className={`px-3 py-1 rounded-lg font-medium transition ${
+              className={`px-3 py-1 rounded-lg font-medium transition active:scale-[0.98] ${
                 filterBalance === "ALL" ? "bg-white shadow-xs text-slate-900 font-bold" : "text-slate-500"
               }`}
             >
@@ -130,7 +130,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             </button>
             <button
               onClick={() => setFilterBalance("DUE")}
-              className={`px-3 py-1 rounded-lg font-medium transition ${
+              className={`px-3 py-1 rounded-lg font-medium transition active:scale-[0.98] ${
                 filterBalance === "DUE" ? "bg-rose-500 text-white font-bold" : "text-slate-500"
               }`}
             >
@@ -138,7 +138,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             </button>
             <button
               onClick={() => setFilterBalance("ZERO")}
-              className={`px-3 py-1 rounded-lg font-medium transition ${
+              className={`px-3 py-1 rounded-lg font-medium transition active:scale-[0.98] ${
                 filterBalance === "ZERO" ? "bg-emerald-600 text-white font-bold" : "text-slate-500"
               }`}
             >
@@ -148,170 +148,172 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 shadow-xs transition active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs active:scale-[0.98] transition shrink-0"
           >
-            <UserPlus className="w-4 h-4" />
-            <span className="hidden xs:inline">Add Customer</span>
+            <UserPlus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Add Customer</span>
           </button>
         </div>
       </div>
 
-      {/* Customer List */}
+      {/* Customer Accounts Feed */}
       {filteredCustomers.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center border border-slate-200/90 shadow-xs">
+        <div className="bg-white/90 backdrop-blur-md p-12 rounded-3xl border border-dashed border-slate-300 text-center">
           <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-sm font-bold text-slate-800">No Customers Found</h3>
-          <p className="text-xs text-slate-400 mt-1">Click &quot;Add Customer&quot; above to register a new account.</p>
+          <h3 className="text-sm font-bold text-slate-700">No Customers Match</h3>
+          <p className="text-xs text-slate-400 mt-1">Try another search or register a new customer.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {filteredCustomers.map((cust) => {
-            const hasDue = cust.balance > 0;
+            const isDue = cust.balance > 0;
             const isExpanded = expandedCustomerId === cust.id;
-            const customerTxs = transactions.filter((t) => t.customerId === cust.id);
+            const custTransactions = transactions.filter((t) => t.customerId === cust.id);
             const trust = getCustomerTrust(cust.balance);
 
             return (
               <div
                 key={cust.id}
-                className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden transition-all"
+                className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 hover:shadow-md transition-all duration-300 overflow-hidden"
               >
-                {/* Main Card Row */}
-                <div className="p-4 sm:p-5 flex items-center justify-between gap-3">
-                  <div
-                    onClick={() => toggleExpand(cust.id)}
-                    className="flex items-center gap-3 cursor-pointer flex-1"
-                  >
+                {/* Main Customer Summary Card */}
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm shadow-xs shrink-0 ${
-                        hasDue
-                          ? "bg-rose-50 text-rose-600 border border-rose-200/60"
-                          : "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                        isDue
+                          ? "bg-rose-50 text-rose-600 border border-rose-100"
+                          : "bg-emerald-50 text-emerald-600 border border-emerald-100"
                       }`}
                     >
-                      {cust.name.charAt(0).toUpperCase()}
+                      {cust.name.substring(0, 2).toUpperCase()}
                     </div>
+
                     <div>
-                      <h4 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                        {cust.name}
-                        {cust.balance === 0 && (
-                          <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
-                            Settled
-                          </span>
-                        )}
-                      </h4>
-                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                        <Phone className="w-3 h-3 text-slate-400" />
-                        {cust.phone}
-                      </p>
-                      {/* AI Credit Trust Score Badge */}
-                      <div className="flex items-center gap-1.5 mt-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-sm sm:text-base text-slate-900">{cust.name}</h4>
+                        {/* Dynamic AI Credit Trust Score Badge */}
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             trust.color === "emerald"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                               : trust.color === "amber"
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : "bg-rose-50 text-rose-700 border border-rose-200"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200/80"
+                              : "bg-rose-50 text-rose-700 border border-rose-200/80"
                           }`}
                         >
                           <ShieldCheck className="w-3 h-3" />
                           Trust Score: {trust.score}/100 • {trust.label}
                         </span>
                       </div>
+
+                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                        <span className="flex items-center gap-1 font-mono">
+                          <Phone className="w-3 h-3" />
+                          {cust.phone}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Last active:{" "}
+                          {cust.lastActivity
+                            ? new Date(cust.lastActivity).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                              })
+                            : "Recently"}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Balance & Actions */}
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
+                  {/* Balance & Action Buttons */}
+                  <div className="flex items-center justify-between w-full sm:w-auto sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                    <div className="text-left sm:text-right">
                       <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                        {hasDue ? "Outstanding Credit" : "Account Balance"}
+                        {isDue ? "Pending Balance" : "Account Status"}
                       </div>
                       <div
-                        className={`text-base sm:text-lg font-extrabold tracking-tight font-sans ${
-                          hasDue ? "text-rose-600" : "text-emerald-600"
+                        className={`text-lg sm:text-xl font-extrabold tracking-tight font-sans tabular-nums ${
+                          isDue ? "text-rose-600" : "text-emerald-600"
                         }`}
                       >
-                        ₹{cust.balance.toLocaleString("en-IN")}
+                        {isDue ? `₹${cust.balance.toLocaleString("en-IN")}` : "All Clear"}
                       </div>
                     </div>
 
-                    {/* Action Buttons: Statement, UPI QR, WhatsApp Reminder */}
                     <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleShareStatement(cust)}
-                        title="Share Complete Khata Statement on WhatsApp"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs active:scale-95 transition"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-slate-600" />
-                        <span className="hidden sm:inline">Statement</span>
-                      </button>
-
-                      {hasDue && (
+                      {isDue && (
                         <>
                           <button
                             onClick={() => onOpenUPIQR(cust.name, cust.balance)}
-                            title="Show Instant UPI QR Code"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs active:scale-95 transition"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs active:scale-[0.98] transition"
+                            title="Generate Instant UPI Payment QR Code"
                           >
                             <QrCode className="w-3.5 h-3.5 text-slate-600" />
-                            <span className="hidden sm:inline">UPI QR</span>
+                            <span className="hidden xs:inline">UPI QR</span>
+                          </button>
+                          <button
+                            onClick={() => handleShareStatement(cust)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100/90 border border-indigo-200 shadow-xs active:scale-[0.98] transition"
+                            title="Share Complete Khata Statement on WhatsApp"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                            <span className="hidden xs:inline">Statement</span>
                           </button>
                           <button
                             onClick={() => handleSendReminder(cust)}
-                            title="Send WhatsApp Payment Reminder"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-[0.98] transition"
+                            title="Send Payment Reminder on WhatsApp"
                           >
                             <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                            <span className="hidden sm:inline">Reminder</span>
+                            <span className="hidden xs:inline">Remind</span>
                           </button>
                         </>
                       )}
-                    </div>
 
-                    <button
-                      onClick={() => toggleExpand(cust.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                      aria-label="Toggle history"
-                    >
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
-                    </button>
+                      <button
+                        onClick={() => toggleExpand(cust.id)}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:scale-[0.98] transition"
+                        title={isExpanded ? "Collapse history" : "Expand history"}
+                      >
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Expanded Transactions Accordion */}
+                {/* Expanded Customer Khata Ledger History */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 sm:px-5 sm:pb-5 pt-2 border-t border-slate-100 bg-slate-50/50">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                        Transaction Ledger ({customerTxs.length})
-                      </span>
+                  <div className="bg-slate-50/70 border-t border-slate-200/80 p-4 sm:p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Recent Khata Transactions ({custTransactions.length})
+                      </h5>
                       <span className="text-[11px] text-slate-400">
-                        {customerTxs.length === 0 ? "No records recorded" : "Complete history"}
+                        {cust.name}&apos;s Recorded History
                       </span>
                     </div>
 
-                    {customerTxs.length === 0 ? (
-                      <p className="text-xs text-slate-400 py-3 italic">
+                    {custTransactions.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-3 text-center">
                         No transactions recorded for this customer yet.
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {customerTxs.map((tx) => {
+                        {custTransactions.map((tx) => {
                           const isUdhaar = tx.type === "UDHAAR";
                           return (
                             <div
                               key={tx.id}
-                              className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between text-xs"
+                              className="bg-white/90 backdrop-blur-md rounded-xl p-3 border border-slate-200/80 shadow-2xs flex items-center justify-between gap-3 text-xs"
                             >
                               <div className="flex items-center gap-2.5">
                                 <div
-                                  className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                                     isUdhaar
                                       ? "bg-rose-50 text-rose-600"
                                       : "bg-emerald-50 text-emerald-600"
@@ -325,7 +327,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                                 </div>
                                 <div>
                                   <div className="font-semibold text-slate-800">
-                                    {isUdhaar ? "Credit Sale (Udhaar)" : "Payment Received (Cash/UPI)"}
+                                    {isUdhaar ? "Credit Given (Udhaar)" : "Payment Received (Cash/UPI)"}
                                   </div>
                                   <div className="text-[11px] text-slate-400 mt-0.5">
                                     {new Date(tx.timestamp).toLocaleDateString("en-IN", {
@@ -340,7 +342,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                                 </div>
                               </div>
                               <div
-                                className={`font-extrabold text-sm ${
+                                className={`font-extrabold text-sm tabular-nums ${
                                   isUdhaar ? "text-rose-600" : "text-emerald-600"
                                 }`}
                               >
@@ -362,7 +364,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       {/* Add Customer Modal in clean modern English */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-slate-900">Add Customer Account</h3>
               <button
@@ -418,13 +420,13 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl active:scale-[0.98] transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs"
+                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs active:scale-[0.98] transition"
                 >
                   Save Account
                 </button>

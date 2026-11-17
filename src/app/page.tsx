@@ -448,7 +448,7 @@ export default function Home() {
   const overdueCount = customers.filter((c) => c.balance > 500).length;
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-56 sm:pb-64">
+    <main className="min-h-screen pb-56 sm:pb-64">
       {/* Header */}
       <Header onResetData={handleResetData} isListening={isListening} />
 
@@ -483,14 +483,14 @@ export default function Home() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-4">
         {/* Undo Toast Notification Banner */}
         {undoToast && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-3.5 mb-4 shadow-xs flex items-center justify-between gap-3 animate-in fade-in duration-150">
+          <div className="bg-rose-50/95 backdrop-blur-md border border-rose-200 text-rose-800 rounded-2xl p-3.5 mb-4 shadow-sm flex items-center justify-between gap-3 animate-float-in">
             <div className="flex items-center gap-2 text-xs font-semibold">
               <Undo2 className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{undoToast}</span>
             </div>
             <button
               onClick={() => setUndoToast(null)}
-              className="p-1 text-rose-400 hover:text-rose-700 rounded-lg transition"
+              className="p-1 text-rose-400 hover:text-rose-700 rounded-lg active:scale-[0.98] transition"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -499,10 +499,11 @@ export default function Home() {
 
         {/* Highlighted Conversational Business Insight Card */}
         {activeInsight && (
-          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4 sm:p-5 mb-4 shadow-md border border-slate-700/80 relative overflow-hidden animate-in fade-in duration-200">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
+          <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white rounded-3xl p-5 sm:p-6 mb-4 shadow-xl border border-white/10 relative overflow-hidden animate-float-in">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="relative z-10 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
@@ -514,14 +515,14 @@ export default function Home() {
                       Query: &ldquo;{activeInsight.query}&rdquo;
                     </span>
                   </div>
-                  <div className="text-sm font-semibold text-white mt-1 whitespace-pre-line leading-relaxed font-sans">
+                  <div className="text-sm font-semibold text-slate-100 mt-1 whitespace-pre-line leading-relaxed font-sans">
                     {activeInsight.answer}
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => setActiveInsight(null)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg transition"
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl active:scale-[0.98] transition"
                 title="Dismiss insight"
               >
                 <X className="w-4 h-4" />

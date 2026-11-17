@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { History, Users, Package, ShieldCheck } from "lucide-react";
 
 export type TabType = "live" | "customers" | "inventory" | "recovery";
@@ -55,7 +55,7 @@ export const TabsNav: React.FC<TabsNavProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 my-2">
-      <div className="flex items-center bg-slate-200/60 p-1 rounded-2xl gap-1 overflow-x-auto no-scrollbar border border-slate-200/50">
+      <div className="flex items-center bg-white/70 backdrop-blur-md p-1.5 rounded-2xl gap-1 overflow-x-auto no-scrollbar border border-slate-200/80 shadow-xs">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
@@ -64,15 +64,15 @@ export const TabsNav: React.FC<TabsNavProps> = ({
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className={`flex-1 min-w-[120px] sm:min-w-0 py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold transition-all duration-150 ${
+              className={`flex-1 min-w-[120px] sm:min-w-0 py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                 isActive
-                  ? "bg-white text-slate-900 shadow-xs font-bold border border-slate-200/80"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                  ? "bg-white text-slate-900 shadow-[0_2px_10px_-2px_rgba(15,23,42,0.08)] font-bold border border-slate-200/90"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
               }`}
             >
               <Icon
-                className={`w-4 h-4 ${
-                  isActive ? "text-slate-900" : "text-slate-400"
+                className={`w-4 h-4 transition-colors ${
+                  isActive ? "text-emerald-600" : "text-slate-400"
                 }`}
               />
               <span className="truncate">{tab.label}</span>
