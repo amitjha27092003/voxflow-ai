@@ -62,15 +62,15 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
   return (
     <div className="space-y-4">
       {/* Recovery AI Header Banner */}
-      <div className="bg-slate-900 rounded-3xl p-5 sm:p-7 text-white shadow-md relative overflow-hidden border border-slate-800">
-        <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none"></div>
+      <div className="bg-[#0E1526]/90 rounded-3xl p-5 sm:p-7 text-white shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden border border-white/10">
+        <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none"></div>
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 mb-2 shadow-[0_0_10px_rgba(244,63,94,0.2)]">
               <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
               Recovery AI • Automated Collections Engine
             </div>
-            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight font-sans">
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight font-sans text-white">
               High Priority Receivables
             </h2>
             <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-lg leading-relaxed">
@@ -83,7 +83,7 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
             <button
               onClick={() => setShowBulkModal(true)}
               disabled={overdueCustomers.length === 0}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-xs transition disabled:opacity-40"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] transition disabled:opacity-40"
             >
               <Send className="w-4 h-4" />
               Send Bulk Reminders ({overdueCustomers.length})
@@ -94,11 +94,11 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
 
       {/* Analytics Summary Bento Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all duration-300">
+        <div className="bg-white/[0.04] backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.36)] hover:border-white/20 transition-all duration-300">
           <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
             High Priority Receivables
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-rose-600 mt-1 font-sans tabular-nums">
+          <div className="text-xl sm:text-2xl font-extrabold text-rose-400 mt-1 font-sans tabular-nums drop-shadow-sm">
             ₹{totalOverdueAmount.toLocaleString("en-IN")}
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -106,11 +106,11 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
           </p>
         </div>
 
-        <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all duration-300">
+        <div className="bg-white/[0.04] backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.36)] hover:border-white/20 transition-all duration-300">
           <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
             Credit Exposure Ratio
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1 font-sans tabular-nums">
+          <div className="text-xl sm:text-2xl font-extrabold text-white mt-1 font-sans tabular-nums drop-shadow-sm">
             {customers.length > 0
               ? Math.round((totalDebtors / customers.length) * 100)
               : 0}
@@ -121,11 +121,11 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
           </p>
         </div>
 
-        <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all duration-300">
+        <div className="bg-white/[0.04] backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.36)] hover:border-white/20 transition-all duration-300">
           <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
             Settlement Velocity
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-1 font-sans">
+          <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 mt-1 font-sans drop-shadow-sm">
             High (94%)
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -135,10 +135,10 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
       </div>
 
       {/* Overdue Customers List */}
-      <div className="bg-white/90 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-slate-200/80 shadow-xs">
+      <div className="bg-[#0E1526]/90 backdrop-blur-xl rounded-3xl p-4 sm:p-6 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-bold text-sm sm:text-base text-slate-900">
+            <h3 className="font-bold text-sm sm:text-base text-white">
               Immediate Attention Accounts ({overdueCustomers.length})
             </h3>
             <p className="text-xs text-slate-400">
@@ -149,8 +149,8 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
 
         {overdueCustomers.length === 0 ? (
           <div className="p-8 text-center text-slate-400">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-            <p className="text-xs font-semibold text-slate-700">No Overdue Balances Above ₹500</p>
+            <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-white">No Overdue Balances Above ₹500</p>
             <p className="text-xs text-slate-400 mt-0.5">Your credit ledger collection is completely on track.</p>
           </div>
         ) : (
@@ -161,21 +161,21 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
               return (
                 <div
                   key={cust.id}
-                  className="bg-white/95 rounded-2xl p-4 border border-slate-200/80 shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                  className="bg-white/[0.03] backdrop-blur-md rounded-2xl p-4 border border-white/10 shadow-2xs hover:border-white/20 transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center font-bold text-sm">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold text-sm">
                       {cust.name.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <h4
                           onClick={() => onSelectCustomer(cust.id)}
-                          className="font-bold text-sm text-slate-900 hover:underline cursor-pointer"
+                          className="font-bold text-sm text-white hover:underline cursor-pointer"
                         >
                           {cust.name}
                         </h4>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200/80">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
                           <ShieldCheck className="w-3 h-3" />
                           Trust Score: 64/100 • Follow-up Due
                         </span>
@@ -184,7 +184,7 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
                         <span className="font-mono">{cust.phone}</span>
                         <span>•</span>
                         <span>
-                          Pending: <strong className="text-rose-600 font-sans tabular-nums">₹{cust.balance}</strong>
+                          Pending: <strong className="text-rose-400 font-sans tabular-nums">₹{cust.balance}</strong>
                         </span>
                       </div>
                     </div>
@@ -193,23 +193,23 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
                   <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                     <button
                       onClick={() => handleShareSingleStatement(cust)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100/90 border border-indigo-200 shadow-xs active:scale-[0.98] transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 shadow-xs active:scale-[0.98] transition"
                       title="Share Complete Khata Statement on WhatsApp"
                     >
-                      <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                      <FileText className="w-3.5 h-3.5 text-indigo-400" />
                       <span>Statement</span>
                     </button>
                     <button
                       onClick={() => handleSendSingleReminder(cust)}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-[0.98] ${
                         isSent
-                          ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
-                          : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                          : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.25)]"
                       }`}
                     >
                       {isSent ? (
                         <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                           Sent Notice
                         </>
                       ) : (
@@ -228,12 +228,12 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
       </div>
 
       {/* AI Smart Advisory Card */}
-      <div className="bg-slate-50/80 backdrop-blur-sm rounded-3xl p-5 border border-slate-200/80">
-        <div className="flex items-center gap-2 text-slate-800 font-bold text-xs sm:text-sm mb-2">
-          <Sparkles className="w-4 h-4 text-emerald-600" />
+      <div className="bg-[#0E1526]/80 backdrop-blur-xl rounded-3xl p-5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+        <div className="flex items-center gap-2 text-white font-bold text-xs sm:text-sm mb-2">
+          <Sparkles className="w-4 h-4 text-emerald-400" />
           VoxFlow AI Smart Business Advisory
         </div>
-        <ul className="text-xs text-slate-600 space-y-2 list-disc list-inside leading-relaxed">
+        <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
           <li>
             <strong>Gupta General Store</strong> carries the highest pending balance (₹2,150). Recommended policy: require a minimum 50% partial payment prior to fulfilling new credit requests.
           </li>
@@ -248,11 +248,11 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
 
       {/* Bulk Reminder Modal */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+          <div className="bg-[#0E1526] rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-white/15 max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-white">
                   Bulk WhatsApp Reminders
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -261,16 +261,16 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
               </div>
               <button
                 onClick={() => setShowBulkModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="py-4 overflow-y-auto space-y-3 flex-1">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-600">
-                <span className="font-bold text-slate-800">Message Preview:</span>
-                <p className="mt-1 font-mono text-[11px] whitespace-pre-line bg-white p-2.5 rounded-lg border border-slate-200 text-slate-700">
+              <div className="bg-white/[0.03] p-3 rounded-xl border border-white/10 text-xs text-slate-300">
+                <span className="font-bold text-white">Message Preview:</span>
+                <p className="mt-1 font-mono text-[11px] whitespace-pre-line bg-black/40 p-2.5 rounded-lg border border-white/10 text-slate-300">
                   {`🙏 *GUPTA KIRANA STORE*
 Payment Notice for [Customer Name]:
 Your current pending balance is: ₹[Balance].
@@ -279,7 +279,7 @@ UPI ID: guptakirana@upi`}
                 </p>
               </div>
 
-              <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                 Recipients ({overdueCustomers.length}):
               </div>
 
@@ -287,17 +287,17 @@ UPI ID: guptakirana@upi`}
                 {overdueCustomers.map((c) => (
                   <div
                     key={c.id}
-                    className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs text-xs"
+                    className="flex items-center justify-between bg-white/[0.03] p-3 rounded-xl border border-white/10 shadow-xs text-xs"
                   >
                     <div>
-                      <span className="font-bold text-slate-800">{c.name}</span>
+                      <span className="font-bold text-white">{c.name}</span>
                       <span className="text-slate-400 ml-2">({c.phone})</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-rose-600 tabular-nums">₹{c.balance}</span>
+                      <span className="font-extrabold text-rose-400 tabular-nums">₹{c.balance}</span>
                       <button
                         onClick={() => handleSendSingleReminder(c)}
-                        className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg font-semibold hover:bg-emerald-100 active:scale-[0.98] transition"
+                        className="px-2.5 py-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-lg font-semibold hover:bg-emerald-500/25 active:scale-[0.98] transition"
                       >
                         Send
                       </button>
@@ -307,10 +307,10 @@ UPI ID: guptakirana@upi`}
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <div className="text-xs text-slate-500">
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+              <div className="text-xs text-slate-400">
                 Total Collection Value:{" "}
-                <span className="font-extrabold text-slate-900 font-sans tabular-nums">
+                <span className="font-extrabold text-white font-sans tabular-nums">
                   ₹{totalOverdueAmount.toLocaleString("en-IN")}
                 </span>
               </div>
@@ -319,7 +319,7 @@ UPI ID: guptakirana@upi`}
                   overdueCustomers.forEach((c) => handleSendSingleReminder(c));
                   setShowBulkModal(false);
                 }}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs active:scale-[0.98]"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-[0.98]"
               >
                 Open All on WhatsApp
               </button>
