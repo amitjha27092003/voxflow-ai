@@ -99,10 +99,23 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
 
       recognition.onresult = (event: any) => {
         let currentTranscript = "";
+        let isFinalResult = false;
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           currentTranscript += event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            isFinalResult = true;
+          }
         }
         setInterimTranscript(currentTranscript);
+
+        // Instant Auto-Submit on Final Speech without waiting for browser silence timeout
+        if (isFinalResult && currentTranscript.trim()) {
+          try {
+            recognition.stop();
+          } catch {}
+          setIsListening(false);
+          handleProcessVoice(currentTranscript.trim());
+        }
       };
 
       recognition.onerror = (event: any) => {
@@ -145,10 +158,32 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
     setIsProcessing(true);
     setErrorMessage(null);
 
+    // Subtle audio chime / haptic feedback simulation
+    try {
+      if (typeof window !== "undefined" && "AudioContext" in window) {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.08); // A5
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+      }
+    } catch {}
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     try {
       const res = await fetch("/api/process-voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           transcript: transcriptText,
           customers,
@@ -156,6 +191,8 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
           transactions,
         }),
       });
+
+      clearTimeout(timeoutId);
 
       const data: VoiceProcessResponse & { error?: string } = await res.json();
 
@@ -165,13 +202,7 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
 
       setLastResponse(data);
 
-      // Prioritize natural Devanagari Hindi text (ttsText) for Indian human neural pronunciation
-      const textToSpeak = data.ttsText || data.voiceFeedback;
-      if (textToSpeak) {
-        speakHindi(textToSpeak);
-      }
-
-      // Propagate result
+      // 1. Immediately propagate result so UI state and ledger update with ZERO blocking delay
       if (
         (data.intent === "TRANSACTION" && data.actions && data.actions.length > 0) ||
         data.intent === "QUERY" ||
@@ -182,9 +213,20 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
       ) {
         onVoiceSuccess(data, transcriptText);
       }
+
+      // 2. Trigger TTS voice feedback asynchronously right after updating ledger state so UI rendering is never blocked
+      const textToSpeak = data.ttsText || data.voiceFeedback;
+      if (textToSpeak) {
+        setTimeout(() => speakHindi(textToSpeak), 10);
+      }
     } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error("Error processing voice:", err);
-      setErrorMessage(err.message || "Failed to parse voice command. Try again.");
+      if (err.name === "AbortError") {
+        setErrorMessage("Request took too long. Retrying locally...");
+      } else {
+        setErrorMessage(err.message || "Failed to parse voice command. Try again.");
+      }
     } finally {
       setIsProcessing(false);
       setInterimTranscript("");

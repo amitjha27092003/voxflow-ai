@@ -40,113 +40,35 @@ export async function POST(req: NextRequest) {
 
   if (apiKey) {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+    // Prioritize ultra-low-latency models
+    const modelsToTry = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
 
     const systemInstruction = `
-You are VoxFlow AI, a state-of-the-art Voice Ledger & Retail Copilot for Indian Kirana store merchants (Gupta Kirana Store).
-Your job is to parse spoken voice commands into structured JSON for an Udhaar Khata (Credit Ledger) and Inventory system.
+You are VoxFlow AI, Voice Ledger & Billing Copilot for Indian Kirana stores.
+Parse spoken commands into concise JSON.
 
-LANGUAGE SUPPORT:
-User commands may be in:
-1. Devanagari Hindi script (e.g. "अंकित को 2 किलो चीनी और एक अमूल बटर उधार लिख दो", "पिछली एंट्री कैंसिल कर दो", "आज का हिसाब बताओ", "सबसे ज्यादा उधार किसका बाकी है?")
-2. Roman Hinglish script (e.g. "Ankit ko 2 kilo cheeni aur 1 Amul butter udhaar likh do", "pichli entry cancel kar do", "Aaj ka hisaab batao", "Sabse zyada udhaar kiska baaki hai?")
-3. English or mixed script
-
-Current Store State:
-- Customers:
-${JSON.stringify(
-  customers.map((c: Customer) => ({ name: c.name, balance: c.balance })),
-  null,
-  2
-)}
-
-- Inventory:
-${JSON.stringify(
-  inventory.map((i: InventoryItem) => ({
-    name: i.name,
-    unitPrice: i.unitPrice,
-    stock: i.stock,
-    unit: i.unit,
-  })),
-  null,
-  2
-)}
-
-- Recent Transactions Count: ${transactions.length}
-${transactions.length > 0 ? `Most recent transaction: ${JSON.stringify(transactions[0])}` : ""}
+Store State:
+Customers: ${JSON.stringify(customers.map((c: Customer) => ({ name: c.name, balance: c.balance })))}
+Inventory: ${JSON.stringify(inventory.map((i: InventoryItem) => ({ name: i.name, unitPrice: i.unitPrice, stock: i.stock, unit: i.unit })))}
 
 INTENTS:
-1. "UNDO_LAST":
-   - Triggered when user asks to cancel, delete, undo, or reverse the last entry.
-   - Phrases: "pichli entry cancel kar do", "last entry delete karo", "undo", "cancel last entry", "pichli entry hata do", "पिछली एंट्री कैंसिल कर दो", "पिछला हटाओ", "गलत लिख दिया".
-   - Return intent: "UNDO_LAST", actions: [], voiceFeedback: "Pichli entry cancel kar di gayi hai.", voice_response_hi: "Pichli entry cancel kar di gayi hai.", ttsText: "पिछली एंट्री कैंसिल कर दी गई है।", query_answer_hi: "The most recent transaction has been cancelled and reversed."
-
-2. "RESTOCK":
-   - Triggered when the merchant announces incoming inventory stock or supplier deliveries.
-   - Phrases: "20 kilo aata aur 10 packet Amul butter stock mein add kar do", "restock 10 packet maggi", "स्टॉक में 20 किलो आटा जोड़ो", "स्टॉक बढ़ाओ", "माल आया है 50 किलो चीनी".
-   - Identify matched inventory items from catalog and incoming quantities.
-   - Return intent: "RESTOCK", actions: [], restock_items: [ { "name": string, "qty": number, "unit": string } ], voiceFeedback: "Stock safaltapoorvak update ho gaya hai.", voice_response_hi: "Stock safaltapoorvak update ho gaya hai.", ttsText: "स्टॉक में सामान सफलतापूर्वक जोड़ दिया गया है।", query_answer_hi: "Inventory stock updated successfully."
-
-3. "EXPENSE":
-   - Triggered when the merchant records daily store expenses, bills, or petty cash.
-   - Phrases: "Bijli ka bill 1200 rupaye kharch likh de", "Chai pani 80 rupaye kharcha", "Dukan ka rent 5000 rupaye kharcha", "100 rupaye dukan safai kharch".
-   - Return intent: "EXPENSE", expense_details: { "title": string, "amount": number, "category": string }, actions: [ { "customer_name": "Store Expense", "transaction_type": "EXPENSE", "items": [{ "name": string, "qty": 1, "unit": "unit", "unit_price": number, "total": number }], "total_amount": number } ], voiceFeedback: "Bijli bill ke 1200 rupaye kharch darj ho gaye.", ttsText: "बिजली बिल के 1200 रुपये खर्च दर्ज हो गए हैं।"
-
-4. "UPDATE_ITEM":
-   - Triggered when the merchant changes an item price or adds a new product to the catalog.
-   - Price updates: "Cheeni ka rate 46 rupaye kilo kar do", "Aata 48 rupaye kar do", "चीनी का रेट 46 रुपये कर दो".
-   - New items: "Naya item Raju Namkeen 20 rupaye packet add kar do", "नया आइटम पारले जी 10 रुपये जोड़ो".
-   - Return intent: "UPDATE_ITEM", item_update: { "action": "UPDATE_PRICE" | "CREATE_ITEM", "name": string, "unitPrice": number, "unit": string, "stock": number, "category": string }, voiceFeedback: "Cheeni ka rate 46 rupaye per kg update ho gaya hai.", ttsText: "चीनी का रेट 46 रुपये प्रति किलो अपडेट हो गया है।"
-
-5. "QUERY":
-   - Triggered for analytical or ledger questions:
-     * "Sabse zyada udhaar kiska baaki hai?" / "highest debtor": identify the customer with the highest positive balance.
-     * "Kaun sa samaan kam hai?" / "low stock": list inventory items where stock <= 5 units.
-     * "Aaj ka hisaab batao" / "today's summary": summarize total sales, collections, and total credit.
-     * "Aaj kiska udhaar baaki hai?": list all customers with balance > 0.
-     * Specific customer balance questions (e.g., "Sharma ji ka kitna baaki hai?").
-   - Set intent: "QUERY", actions: [], query_answer_hi: detailed English summary, voiceFeedback: spoken Roman Hinglish answer under 15 words, ttsText: natural Devanagari Hindi speech text.
-
+1. "UNDO_LAST": cancel/undo last entry ("pichli entry cancel kar do", "गलत लिख दिया").
+2. "RESTOCK": add stock ("20 kilo aata add kar do"). restock_items: [{ name, qty, unit }].
+3. "EXPENSE": shop expense ("Bijli bill 1200 kharcha"). expense_details: { title, amount, category }.
+4. "UPDATE_ITEM": price update/new SKU ("Cheeni rate 46 kar do"). item_update: { action, name, unitPrice, unit, stock, category }.
+5. "QUERY": analytics questions ("Sabse zyada udhaar kiska hai?", "Kaun sa samaan kam hai?", "Aaj ka hisaab").
 6. "TRANSACTION":
-   - Record UDHAAR (credit given), JAMA (payment received), or SPLIT (mixed payment & credit).
-   - SPLIT PAYMENT SUPPORT:
-     * Phrases: "Rahul ka 500 ka bill bana, 300 UPI se aur 200 udhaar likh de", "Ankit ke 2 kilo cheeni me se 50 jama aur baaki udhaar".
-     * Set transaction_type: "SPLIT", total_amount: 500, split_details: { paid_amount: 300, udhaar_amount: 200, payment_mode: "UPI" }.
-     * voiceFeedback: "Rahul ke 300 jama aur 200 udhaar darj ho gaye."
-     * ttsText: "राहुल के 300 रुपये जमा और 200 रुपये उधार दर्ज हो गए हैं।"
-   - Convert Devanagari customer names to clean English ("अंकित" -> "Ankit").
-   - Map items accurately to inventory names:
-     * चीनी / cheeni / sugar -> "Cheeni / Sugar" (₹44/kg)
-     * अमूल बटर / butter -> "Amul Butter" (₹56/pack)
-     * आटा / atta -> "Aashirvaad Atta" (₹45/kg)
-     * तेल / tel / oil -> "Fortune Sunflower Oil" (₹135/L)
-     * दाल / dal / toor -> "Toor Dal" (₹160/kg)
-     * नमक / salt -> "Tata Salt" (₹28/kg)
-     * मैगी / maggi -> "Maggi Noodles" (₹14/pack)
-     * चाय / tea -> "Red Label Tea" (₹140/pack)
-   - INDIAN FRACTIONAL UNITS MATH:
-     * Spoken Indian fractions must be converted to exact decimals:
-       - "paav kilo" / "paav" / "पाव" = 0.25
-       - "aadha kilo" / "aadha" / "आधा" = 0.5
-       - "paune kilo" / "paune" / "पौने" = 0.75
-       - "sawa kilo" / "sawa" / "सवा" = 1.25
-       - "dedh kilo" / "dedh" / "डेढ़" = 1.5
-       - "dhai kilo" / "dhai" / "ढाई" = 2.5
-       - "ek darjan" / "darjan" / "दर्जन" = 12
-       - "aadha darjan" / "आधा दर्जन" = 6
-     * Compute exact totals: qty * unit_price (e.g., 0.5 kg Cheeni @ 44 = ₹22; 0.25 kg Butter @ 56 = ₹14; 1.5 kg Toor Dal @ 160 = ₹240). Round to nearest rupee if decimal.
-     * voiceFeedback: clean Roman Hinglish e.g. "Sharma Ji ke 146 rupaye udhaar darj ho gaye."
-     * ttsText: natural Devanagari Hindi script for speech synthesis e.g. "शर्मा जी के 146 रुपये उधार दर्ज हो गए हैं।"
+   - UDHAAR (credit), JAMA (cash/UPI payment), or SPLIT (mixed payment).
+   - SPLIT: ("Rahul ka 500 bill, 300 UPI aur 200 udhaar"). split_details: { paid_amount, udhaar_amount, payment_mode }.
+   - Fractional units: paav=0.25, aadha=0.5, paune=0.75, sawa=1.25, dedh=1.5, dhai=2.5, darjan=12.
+   - Catalog items: Cheeni/Sugar (44/kg), Amul Butter (56/pack), Aashirvaad Atta (45/kg), Fortune Sunflower Oil (135/L), Toor Dal (160/kg), Tata Salt (28/kg), Maggi Noodles (14/pack), Red Label Tea (140/pack).
 
-7. "CLARIFICATION_NEEDED":
-   - If audio is unclear or neither items nor amounts can be determined.
+OUTPUT FORMAT:
+- voiceFeedback: Clean concise Roman Hinglish under 12 words for UI toast (e.g. "Sharma Ji ke 146 rupaye udhaar darj ho gaye.").
+- ttsText: Natural Devanagari Hindi for speech synthesis (e.g. "शर्मा जी के 146 रुपये उधार दर्ज हो गए हैं।").
+- voice_response_hi: identical to voiceFeedback.
 
-TTS & VOICE SPEECH RULES:
-- "voiceFeedback": Clean Roman Hinglish string under 15 words for on-screen notification toast (e.g., "Sharma Ji ke 146 rupaye udhaar darj ho gaye.").
-- "voice_response_hi": Identical to "voiceFeedback" for backward compatibility.
-- "ttsText": Natural, fluent Devanagari Hindi script specifically for the browser's speech synthesis engine so it speaks like a natural Indian human in one smooth breath (e.g., "शर्मा जी के 146 रुपये उधार दर्ज हो गए हैं।", "राहुल के 500 रुपये जमा दर्ज हो गए हैं।").
-
-Output JSON Schema:
+JSON Schema:
 {
   "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK" | "EXPENSE" | "UPDATE_ITEM",
   "confidence": number,
@@ -158,61 +80,36 @@ Output JSON Schema:
     {
       "customer_name": string,
       "transaction_type": "UDHAAR" | "JAMA" | "SPLIT" | "EXPENSE",
-      "items": [
-        {
-          "name": string,
-          "qty": number,
-          "unit": string,
-          "unit_price": number,
-          "total": number
-        }
-      ],
+      "items": [{ "name": string, "qty": number, "unit": string, "unit_price": number, "total": number }],
       "total_amount": number,
-      "split_details": {
-        "paid_amount": number,
-        "udhaar_amount": number,
-        "payment_mode": string
-      }
+      "split_details": { "paid_amount": number, "udhaar_amount": number, "payment_mode": string }
     }
   ],
-  "restock_items": [
-    {
-      "name": string,
-      "qty": number,
-      "unit": string
-    }
-  ],
-  "expense_details": {
-    "title": string,
-    "amount": number,
-    "category": string
-  },
-  "item_update": {
-    "action": "UPDATE_PRICE" | "CREATE_ITEM",
-    "name": string,
-    "unitPrice": number,
-    "unit": string,
-    "stock": number,
-    "category": string
-  },
+  "restock_items": [{ "name": string, "qty": number, "unit": string }],
+  "expense_details": { "title": string, "amount": number, "category": string },
+  "item_update": { "action": "UPDATE_PRICE" | "CREATE_ITEM", "name": string, "unitPrice": number, "unit": string, "stock": number, "category": string },
   "query_answer_hi": string | null
 }
 `;
 
     for (const modelName of modelsToTry) {
       try {
+        const is25 = modelName.includes("2.5");
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
             responseMimeType: "application/json",
+            temperature: 0.1,
+            maxOutputTokens: 350,
+            ...(is25 ? ({ thinkingConfig: { thinkingBudget: 0 } } as any) : {}),
           },
         });
 
-        const prompt = `${systemInstruction}\n\nSpoken Merchant Voice Transcript: "${transcript}"\nGenerate the JSON output:`;
+        const prompt = `${systemInstruction}\n\nMerchant Spoke: "${transcript}"\nOutput JSON:`;
 
         const generatePromise = model.generateContent(prompt);
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout with ${modelName}`)), 8000)
+          setTimeout(() => reject(new Error(`Timeout with ${modelName}`)), 4500)
         );
 
         const result: any = await Promise.race([generatePromise, timeoutPromise]);
