@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
         intent: "CLARIFICATION_NEEDED",
         confidence: 0,
         clarification_question_hi: "Please speak again, audio could not be detected.",
-        voice_response_hi: "कृपया दोबारा बोलें, आवाज़ स्पष्ट नहीं थी।",
+        voice_response_hi: "Kripya dobara bolein, aawaz spasht nahi thi.",
         actions: [],
         query_answer_hi: null,
       } as VoiceProcessResponse,
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         intent: "CLARIFICATION_NEEDED",
         confidence: 0,
         clarification_question_hi: "Please speak again, audio was unclear.",
-        voice_response_hi: "कृपया दोबारा बोलें, आवाज़ स्पष्ट नहीं थी।",
+        voice_response_hi: "Kripya dobara bolein, aawaz spasht nahi thi.",
         actions: [],
         query_answer_hi: null,
       } as VoiceProcessResponse,
@@ -36,15 +36,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
 
   if (apiKey) {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelsToTry = ["gemini-2.5-flash", "gemini-3.8-flash"];
+    // User requested gemini-2.5-flash with fallback to gemini-2.0-flash
+    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 
     const systemInstruction = `
-You are VoxFlow AI, a world-class Hinglish Voice Ledger & Retail Copilot for Indian Kirana store merchants (Gupta Kirana Store).
-Your job is to parse spoken Hinglish commands into structured JSON for an Udhaar Khata (Credit Ledger) and Inventory system.
+You are VoxFlow AI, a state-of-the-art Voice Ledger & Retail Copilot for Indian Kirana store merchants (Gupta Kirana Store).
+Your job is to parse spoken voice commands into structured JSON for an Udhaar Khata (Credit Ledger) and Inventory system.
+
+LANGUAGE SUPPORT:
+The user speaks in Hindi or Hinglish. Voice recognition may output:
+1. Devanagari Hindi script (e.g., "अंकित को 2 किलो चीनी और एक अमूल बटर उधार लिख दो", "राहुल के 500 रुपये जमा कर लो", "आज किसका उधार बाकी है?")
+2. Roman Hinglish script (e.g., "Ankit ko 2 kilo cheeni aur 1 Amul butter udhaar likh do", "Rahul ke 500 rupaye jama kar le")
+3. Mixed script
 
 Current Merchant Context:
 - Registered Customers:
@@ -67,34 +74,45 @@ ${JSON.stringify(
 )}
 
 RULES:
-1. Intent Classification:
-   - "TRANSACTION": User wants to record UDHAAR (credit given) or JAMA (payment received / cash paid back).
-     Can handle MULTIPLE customers and MULTIPLE mixed actions in a single sentence (e.g. "Sharma ji ke 2 kilo aata udhaar aur Rahul ke 500 rupaye jama").
-   - "QUERY": User is asking a question about balances, stock, who owes money, total credit, etc.
-     Examples: "Aaj kiska udhaar baaki hai?", "Sharma ji ka kitna baaki hai?", "Tel ka stock kitna bacha hai?".
-     For QUERY, compute the exact answer based on the provided Customers and Inventory data. Put the full explanation in 'query_answer_hi' and a crisp spoken version in 'voice_response_hi'. 'actions' must be empty [].
-   - "CLARIFICATION_NEEDED": If speech is unintelligible, confidence < 0.75, or missing both customer and amounts.
+1. Customer Names (Always in Clean English):
+   - Output customer names in clean English / Roman alphabet with Title Case.
+   - If spoken in Devanagari, transliterate accurately to English:
+     "अंकित" -> "Ankit"
+     "शर्मा जी" / "शर्मा" -> "Sharma Ji"
+     "राहुल" / "राहुल वर्मा" -> "Rahul Verma"
+     "सुनीता" / "सुनीता देवी" -> "Sunita Devi"
+     "गुप्ता जी" / "गुप्ता" -> "Gupta General Store"
+     "रमेश" -> "Ramesh"
+     "प्रिया" -> "Priya Singh"
+   - Match existing customer names fuzzily. If a customer is not registered, create their English name.
 
-2. Item & Price Resolution:
-   - Match items intelligently with phonetic Hinglish spellings:
-     aata/atta -> Aashirvaad Atta
-     makhan/butter -> Amul Butter
-     tel/oil/refined -> Fortune Sunflower Oil
-     namak/salt -> Tata Salt
-     daal/dal/toor/arhar -> Toor Dal
-     cheeni/chini/sugar/shakkar -> Cheeni / Sugar
-     maggi/maggie/noodles -> Maggi Noodles
-     chai/tea/chai patti -> Red Label Tea
-   - If user says a quantity and item without price, look up the unitPrice from inventory and compute: total = qty * unitPrice.
-   - For JAMA (payment received), if no items are mentioned (just money like "500 rupaye jama"), items should be empty [] and total_amount = the amount.
+2. Item & Price Resolution (Devanagari & Roman):
+   - Map Hindi and English item names accurately to the Inventory Catalog:
+     * "चीनी" / "chini" / "cheeni" / "sugar" / "शक्कर" -> "Cheeni / Sugar" (Price: ₹44/kg)
+     * "अमूल बटर" / "बटर" / "मक्खन" / "butter" / "makhan" -> "Amul Butter" (Price: ₹56/pack)
+     * "आटा" / "atta" / "aata" / "गेहूं का आटा" -> "Aashirvaad Atta" (Price: ₹45/kg)
+     * "तेल" / "फॉर्च्यून तेल" / "tel" / "oil" / "fortune" -> "Fortune Sunflower Oil" (Price: ₹135/L)
+     * "दाल" / "तूर दाल" / "अरहर दाल" / "dal" / "daal" / "toor" -> "Toor Dal" (Price: ₹160/kg)
+     * "नमक" / "टाटा नमक" / "salt" / "namak" -> "Tata Salt" (Price: ₹28/kg)
+     * "मैगी" / "नूडल्स" / "maggi" / "noodles" -> "Maggi Noodles" (Price: ₹14/pack)
+     * "चाय" / "चाय पत्ती" / "tea" / "chai" / "red label" -> "Red Label Tea" (Price: ₹140/pack)
+   - Parse quantities whether spoken as digits or Hindi words ("एक" = 1, "दो" = 2, "तीन" = 3, "चार" = 4, "पांच" = 5, "आधा" = 0.5, "डेढ़" = 1.5).
+   - CRITICAL: Calculate each item total = qty * unit_price.
+   - Sum all item totals to calculate the action's total_amount.
+     Example: "2 किलो चीनी और एक अमूल बटर" -> (2 * 44) + (1 * 56) = 88 + 56 = ₹144. NEVER extract "2" as ₹2!
 
-3. Customer Matching:
-   - Match existing customer names fuzzily (e.g., "Sharma ji", "Sharma", "Rahul", "Sunita").
-   - If the customer is not in the list, use the name spoken by user so a new customer entry can be created.
+3. Transaction Types:
+   - "UDHAAR" (उधार, लिख दो, ले गया, खाते में डालो) -> Credit given.
+   - "JAMA" (जमा, दिए, चुकाए, पेमेंट, नकद) -> Payment received. For pure cash payments (e.g., "500 रुपये जमा"), items is [] and total_amount is 500.
 
-4. Voice Response:
-   - 'voice_response_hi' MUST be natural spoken Hinglish/Hindi and strictly UNDER 15 WORDS.
-   - E.g.: "Sharma ji ke 146 rupaye udhaar aur Rahul ke 500 rupaye jama darj ho gaye."
+4. Voice Response ('voice_response_hi'):
+   - Output natural spoken Hinglish/Hindi under 15 words.
+   - Example: "Ankit ke 144 rupaye udhaar darj ho gaye."
+   - Example: "Rahul ke 500 rupaye jama darj ho gaye."
+
+5. Queries:
+   - For queries like "किसका उधार बाकी है?", "आज किसका उधार बाकी है?", "Sharma ji ka kitna baaki hai?":
+     Set intent: "QUERY", actions: [], query_answer_hi: clean English summary, voice_response_hi: spoken Hinglish answer.
 
 Output JSON Schema:
 {
@@ -133,9 +151,10 @@ Output JSON Schema:
 
         const prompt = `${systemInstruction}\n\nSpoken Merchant Voice Transcript: "${transcript}"\nGenerate the JSON output:`;
 
+        // 8-second timeout for reliable mobile response
         const generatePromise = model.generateContent(prompt);
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Gemini API call timed out")), 3500)
+          setTimeout(() => reject(new Error(`Timeout with ${modelName}`)), 8000)
         );
 
         const result: any = await Promise.race([generatePromise, timeoutPromise]);
@@ -143,46 +162,61 @@ Output JSON Schema:
         const parsed: VoiceProcessResponse = JSON.parse(responseText);
         return NextResponse.json(parsed);
       } catch (geminiError: any) {
-        console.warn(`Gemini API attempt with ${modelName} encountered error:`, geminiError.message);
+        console.warn(`Gemini API attempt with ${modelName} error:`, geminiError.message);
       }
     }
+  } else {
+    console.error("GEMINI_API_KEY environment variable is missing.");
+    return NextResponse.json({
+      intent: "CLARIFICATION_NEEDED",
+      confidence: 0,
+      clarification_question_hi: "GEMINI_API_KEY is missing in Vercel settings. Please add it to your environment variables.",
+      voice_response_hi: "Gemini API key configure nahi hai, Vercel settings check karein.",
+      actions: [],
+      query_answer_hi: "Missing GEMINI_API_KEY. Please configure GEMINI_API_KEY in Vercel Project Settings > Environment Variables.",
+    } as VoiceProcessResponse);
   }
 
-  // Fallback to high-precision local Hinglish Retail NLP parser
-  const parsedResponse = parseHinglishLocally(transcript, customers, inventory);
+  // Fallback parser handling BOTH Devanagari Hindi and Roman Hinglish
+  const parsedResponse = parseBilingualLocally(transcript, customers, inventory);
   return NextResponse.json(parsedResponse);
 }
 
-// High-Precision Local Hinglish Retail NLP Parser
-function parseHinglishLocally(
+// Robust Bilingual Parser (Devanagari Hindi + Roman Hinglish)
+function parseBilingualLocally(
   transcript: string,
   customers: Customer[],
   inventory: InventoryItem[]
 ): VoiceProcessResponse {
-  const lower = transcript.toLowerCase();
+  const text = transcript.trim();
+  const lower = text.toLowerCase();
 
-  // 1. QUERY INTENT
-  if (
+  // 1. QUERY INTENT (Devanagari or Roman)
+  const isQuery =
     lower.includes("kiska udhaar") ||
     lower.includes("baaki hai") ||
     lower.includes("udhar baaki") ||
     lower.includes("kitna baaki") ||
-    lower.includes("kaun kaun") ||
-    lower.includes("pending")
-  ) {
-    const matchedCustomer = customers.find((c) =>
-      lower.includes(c.name.toLowerCase().split(" ")[0])
-    );
+    lower.includes("pending") ||
+    text.includes("किसका उधार") ||
+    text.includes("कितना बाकी") ||
+    text.includes("बाकी है") ||
+    text.includes("किस-किस का");
 
-    if (matchedCustomer) {
-      return {
-        intent: "QUERY",
-        confidence: 0.95,
-        clarification_question_hi: null,
-        voice_response_hi: `${matchedCustomer.name} ke ${matchedCustomer.balance} rupaye baaki hain.`,
-        actions: [],
-        query_answer_hi: `Total pending credit for ${matchedCustomer.name} is ₹${matchedCustomer.balance}.`,
-      };
+  if (isQuery) {
+    // Specific customer check
+    for (const c of customers) {
+      const first = c.name.toLowerCase().split(" ")[0];
+      if (lower.includes(first) || text.includes(c.name)) {
+        return {
+          intent: "QUERY",
+          confidence: 0.95,
+          clarification_question_hi: null,
+          voice_response_hi: `${c.name} ke ${c.balance} rupaye baaki hain.`,
+          actions: [],
+          query_answer_hi: `Total pending credit for ${c.name} is ₹${c.balance}.`,
+        };
+      }
     }
 
     const overdue = customers.filter((c) => c.balance > 0);
@@ -199,190 +233,186 @@ function parseHinglishLocally(
     };
   }
 
-  // 2. MULTI-INTENT & ITEM PARSING
-  const clauses = lower.split(/\b(?:aur|tatha|and|,)\b/).map((c) => c.trim()).filter(Boolean);
-  const actionsMap = new Map<string, VoiceAction>();
-  let lastCustomerName = "";
+  // 2. Resolve Customer Name (Devanagari + Roman)
+  let customerName = "Walk-in Customer";
 
-  for (const clause of clauses) {
-    const isJama = clause.includes("jama") || clause.includes("diye") || clause.includes("chukta") || clause.includes("paid");
-    const isExplicitUdhaar = clause.includes("udhaar") || clause.includes("udhar") || clause.includes("likh");
-
-    // Resolve Customer
-    let matchedCustomerName = "";
-    for (const c of customers) {
-      const firstName = c.name.toLowerCase().split(" ")[0];
-      if (clause.includes(firstName)) {
-        matchedCustomerName = c.name;
-        break;
-      }
-    }
-
-    if (!matchedCustomerName) {
-      const nameMatch = clause.match(/^([a-z\s]+?)\s+(?:ke|ko|ne|ka)\b/i);
-      if (nameMatch && nameMatch[1]) {
-        matchedCustomerName = nameMatch[1].trim();
-        matchedCustomerName = matchedCustomerName
+  // Check known customers
+  if (text.includes("अंकित") || lower.includes("ankit")) {
+    customerName = "Ankit";
+  } else if (text.includes("शर्मा") || lower.includes("sharma")) {
+    customerName = "Sharma Ji";
+  } else if (text.includes("राहुल") || lower.includes("rahul")) {
+    customerName = "Rahul Verma";
+  } else if (text.includes("सुनीता") || lower.includes("sunita")) {
+    customerName = "Sunita Devi";
+  } else if (text.includes("गुप्ता") || lower.includes("gupta")) {
+    customerName = "Gupta General Store";
+  } else if (text.includes("प्रिया") || lower.includes("priya")) {
+    customerName = "Priya Singh";
+  } else if (text.includes("रमेश") || lower.includes("ramesh")) {
+    customerName = "Ramesh Kumar";
+  } else {
+    // Try regex extraction from "X को" or "X के"
+    const hindiNameMatch = text.match(/^([^\s]+)\s+(?:को|के|ने|का)/);
+    if (hindiNameMatch && hindiNameMatch[1]) {
+      customerName = hindiNameMatch[1];
+    } else {
+      const romanNameMatch = lower.match(/^([a-z\s]+?)\s+(?:ke|ko|ne|ka)\b/i);
+      if (romanNameMatch && romanNameMatch[1]) {
+        customerName = romanNameMatch[1]
           .split(" ")
           .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
           .join(" ");
       }
     }
-
-    // If this clause has no customer name, inherit previous clause's customer!
-    if (!matchedCustomerName) {
-      matchedCustomerName = lastCustomerName || "Grahak";
-    } else {
-      lastCustomerName = matchedCustomerName;
-    }
-
-    const txType: "UDHAAR" | "JAMA" = isJama ? "JAMA" : "UDHAAR";
-    const mapKey = `${matchedCustomerName}_${txType}`;
-
-    let currentAction = actionsMap.get(mapKey);
-    if (!currentAction) {
-      currentAction = {
-        customer_name: matchedCustomerName,
-        transaction_type: txType,
-        items: [],
-        total_amount: 0,
-      };
-      actionsMap.set(mapKey, currentAction);
-    }
-
-    if (txType === "JAMA") {
-      const amountMatch = clause.match(/\b(\d+)\b/);
-      const amt = amountMatch ? parseInt(amountMatch[1], 10) : 500;
-      currentAction.total_amount += amt;
-    } else {
-      // UDHAAR items
-      let itemsAdded = false;
-
-      // Atta / Aata
-      if (clause.includes("aata") || clause.includes("atta")) {
-        const qtyMatch = clause.match(/(\d+)\s*(?:kilo|kg)?\s*(?:aata|atta)/);
-        const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 2;
-        const unitPrice = 45;
-        const total = qty * unitPrice;
-        currentAction.items.push({ name: "Aashirvaad Atta", qty, unit: "kg", unit_price: unitPrice, total });
-        currentAction.total_amount += total;
-        itemsAdded = true;
-      }
-
-      // Butter / Makhan
-      if (clause.includes("butter") || clause.includes("makhan")) {
-        const qtyMatch = clause.match(/(\d+)\s*(?:pack|packet)?\s*(?:amul\s*)?(?:butter|makhan)/);
-        const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-        const unitPrice = 56;
-        const total = qty * unitPrice;
-        currentAction.items.push({ name: "Amul Butter", qty, unit: "pack", unit_price: unitPrice, total });
-        currentAction.total_amount += total;
-        itemsAdded = true;
-      }
-
-      // Tel / Oil
-      if (clause.includes("tel") || clause.includes("oil") || clause.includes("fortune")) {
-        const qtyMatch = clause.match(/(\d+)\s*(?:liter|litre|l)?\s*(?:fortune\s*)?(?:tel|oil)/);
-        const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-        const unitPrice = 135;
-        const total = qty * unitPrice;
-        currentAction.items.push({ name: "Fortune Sunflower Oil", qty, unit: "L", unit_price: unitPrice, total });
-        currentAction.total_amount += total;
-        itemsAdded = true;
-      }
-
-      // Cheeni / Sugar
-      if (clause.includes("cheeni") || clause.includes("chini") || clause.includes("sugar")) {
-        const qtyMatch = clause.match(/(\d+)\s*(?:kilo|kg)?\s*(?:cheeni|chini|sugar)/);
-        const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-        const unitPrice = 44;
-        const total = qty * unitPrice;
-        currentAction.items.push({ name: "Cheeni / Sugar", qty, unit: "kg", unit_price: unitPrice, total });
-        currentAction.total_amount += total;
-        itemsAdded = true;
-      }
-
-      // Toor Dal
-      if (clause.includes("dal") || clause.includes("daal") || clause.includes("toor")) {
-        const qtyMatch = clause.match(/(\d+)\s*(?:kilo|kg)?\s*(?:toor\s*)?(?:dal|daal)/);
-        const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-        const unitPrice = 160;
-        const total = qty * unitPrice;
-        currentAction.items.push({ name: "Toor Dal", qty, unit: "kg", unit_price: unitPrice, total });
-        currentAction.total_amount += total;
-        itemsAdded = true;
-      }
-
-      // Maggi
-      if (clause.includes("maggi") || clause.includes("noodles") || clause.includes("maggie")) {
-        const qtyMatch = clause.match(/(\d+)\s*(?:pack|packet)?\s*(?:maggi|maggie|noodles)/);
-        const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-        const unitPrice = 14;
-        const total = qty * unitPrice;
-        currentAction.items.push({ name: "Maggi Noodles", qty, unit: "pack", unit_price: unitPrice, total });
-        currentAction.total_amount += total;
-        itemsAdded = true;
-      }
-
-      // Tea / Chai
-      if (clause.includes("chai") || clause.includes("tea") || clause.includes("red label")) {
-        const qtyMatch = clause.match(/(\d+)\s*(?:pack|packet)?\s*(?:red label\s*)?(?:chai|tea)/);
-        const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-        const unitPrice = 140;
-        const total = qty * unitPrice;
-        currentAction.items.push({ name: "Red Label Tea", qty, unit: "pack", unit_price: unitPrice, total });
-        currentAction.total_amount += total;
-        itemsAdded = true;
-      }
-
-      // Salt / Namak
-      if (clause.includes("salt") || clause.includes("namak")) {
-        const qtyMatch = clause.match(/(\d+)\s*(?:kilo|kg)?\s*(?:tata\s*)?(?:salt|namak)/);
-        const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-        const unitPrice = 28;
-        const total = qty * unitPrice;
-        currentAction.items.push({ name: "Tata Salt", qty, unit: "kg", unit_price: unitPrice, total });
-        currentAction.total_amount += total;
-        itemsAdded = true;
-      }
-
-      // If no catalog items matched in this clause and it's a standalone amount
-      if (!itemsAdded) {
-        const numberMatch = clause.match(/\b(\d+)\b/);
-        if (numberMatch) {
-          const directAmt = parseInt(numberMatch[1], 10);
-          currentAction.total_amount += directAmt;
-        }
-      }
-    }
   }
 
-  const actions = Array.from(actionsMap.values()).filter((a) => a.total_amount > 0 || a.items.length > 0);
+  const isJama =
+    text.includes("जमा") ||
+    text.includes("चुकाए") ||
+    text.includes("दिए") ||
+    lower.includes("jama") ||
+    lower.includes("diye") ||
+    lower.includes("paid");
 
-  if (actions.length === 0) {
+  // Pure JAMA transaction (e.g., "Rahul ke 500 rupaye jama")
+  if (isJama && !text.includes("चीनी") && !text.includes("बटर") && !text.includes("आटा") && !text.includes("तेल") && !lower.includes("cheeni") && !lower.includes("aata")) {
+    const amtMatch = text.match(/\b(\d+)\b/);
+    const amt = amtMatch ? parseInt(amtMatch[1], 10) : 500;
+    return {
+      intent: "TRANSACTION",
+      confidence: 0.95,
+      clarification_question_hi: null,
+      voice_response_hi: `${customerName} ke ${amt} rupaye jama darj ho gaye.`,
+      actions: [
+        {
+          customer_name: customerName,
+          transaction_type: "JAMA",
+          items: [],
+          total_amount: amt,
+        },
+      ],
+      query_answer_hi: null,
+    };
+  }
+
+  // 3. Match Catalog Items (Devanagari & Roman)
+  const items: VoiceActionItem[] = [];
+  let totalAmount = 0;
+
+  // Helper to parse quantities (digits or words)
+  const getQty = (regexStr: string, defaultQty: number = 1): number => {
+    const match = text.match(new RegExp(regexStr, "i"));
+    if (!match) return defaultQty;
+    const val = match[1]?.trim();
+    if (val === "2" || val === "दो") return 2;
+    if (val === "1" || val === "एक") return 1;
+    if (val === "3" || val === "तीन") return 3;
+    if (val === "4" || val === "चार") return 4;
+    if (val === "5" || val === "पांच") return 5;
+    const num = parseInt(val, 10);
+    return isNaN(num) ? defaultQty : num;
+  };
+
+  // Cheeni / Sugar (₹44/kg)
+  if (text.includes("चीनी") || lower.includes("cheeni") || lower.includes("chini") || lower.includes("sugar")) {
+    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:किलो|kg|kilo)?\\s*(?:चीनी|cheeni|chini|sugar))", 1);
+    const price = 44;
+    const total = qty * price;
+    items.push({ name: "Cheeni / Sugar", qty, unit: "kg", unit_price: price, total });
+    totalAmount += total;
+  }
+
+  // Amul Butter (₹56/pack)
+  if (text.includes("बटर") || text.includes("मक्खन") || lower.includes("butter") || lower.includes("makhan")) {
+    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:पैकेट|pack|packet)?\\s*(?:अमूल\\s*)?(?:बटर|मक्खन|butter|makhan))", 1);
+    const price = 56;
+    const total = qty * price;
+    items.push({ name: "Amul Butter", qty, unit: "pack", unit_price: price, total });
+    totalAmount += total;
+  }
+
+  // Aashirvaad Atta (₹45/kg)
+  if (text.includes("आटा") || lower.includes("aata") || lower.includes("atta")) {
+    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:किलो|kg|kilo)?\\s*(?:आटा|aata|atta))", 2);
+    const price = 45;
+    const total = qty * price;
+    items.push({ name: "Aashirvaad Atta", qty, unit: "kg", unit_price: price, total });
+    totalAmount += total;
+  }
+
+  // Fortune Sunflower Oil (₹135/L)
+  if (text.includes("तेल") || lower.includes("tel") || lower.includes("oil") || lower.includes("fortune")) {
+    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:लीटर|liter|litre|l)?\\s*(?:तेल|tel|oil))", 1);
+    const price = 135;
+    const total = qty * price;
+    items.push({ name: "Fortune Sunflower Oil", qty, unit: "L", unit_price: price, total });
+    totalAmount += total;
+  }
+
+  // Toor Dal (₹160/kg)
+  if (text.includes("दाल") || lower.includes("dal") || lower.includes("daal") || lower.includes("toor")) {
+    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:किलो|kg|kilo)?\\s*(?:दाल|dal|daal|toor))", 1);
+    const price = 160;
+    const total = qty * price;
+    items.push({ name: "Toor Dal", qty, unit: "kg", unit_price: price, total });
+    totalAmount += total;
+  }
+
+  // Tata Salt (₹28/kg)
+  if (text.includes("नमक") || lower.includes("salt") || lower.includes("namak")) {
+    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:किलो|kg|kilo)?\\s*(?:नमक|salt|namak))", 1);
+    const price = 28;
+    const total = qty * price;
+    items.push({ name: "Tata Salt", qty, unit: "kg", unit_price: price, total });
+    totalAmount += total;
+  }
+
+  // Maggi Noodles (₹14/pack)
+  if (text.includes("मैगी") || text.includes("नूडल्स") || lower.includes("maggi") || lower.includes("noodles")) {
+    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:पैकेट|pack)?\\s*(?:मैगी|maggi|noodles))", 1);
+    const price = 14;
+    const total = qty * price;
+    items.push({ name: "Maggi Noodles", qty, unit: "pack", unit_price: price, total });
+    totalAmount += total;
+  }
+
+  // Red Label Tea (₹140/pack)
+  if (text.includes("चाय") || lower.includes("chai") || lower.includes("tea")) {
+    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:पैकेट|pack)?\\s*(?:चाय|chai|tea))", 1);
+    const price = 140;
+    const total = qty * price;
+    items.push({ name: "Red Label Tea", qty, unit: "pack", unit_price: price, total });
+    totalAmount += total;
+  }
+
+  // If no catalog items were recognized, DO NOT extract arbitrary quantities as price!
+  if (items.length === 0) {
     return {
       intent: "CLARIFICATION_NEEDED",
-      confidence: 0.5,
-      clarification_question_hi: "Please clearly specify customer name, items, or amount.",
-      voice_response_hi: "कृपया ग्राहक का नाम और राशि स्पष्ट बोलें।",
+      confidence: 0.4,
+      clarification_question_hi: "Could not identify items or amount. Please repeat customer name and items clearly.",
+      voice_response_hi: "Samaan ya rashi samajh nahi aayi, kripya dobara bolein.",
       actions: [],
       query_answer_hi: null,
     };
   }
 
-  const responseParts = actions.map((a) => {
-    const typeLabel = a.transaction_type === "UDHAAR" ? "udhaar" : "jama";
-    return `${a.customer_name} ke ${a.total_amount} rupaye ${typeLabel}`;
-  });
-
-  const voice_response_hi = `${responseParts.join(" aur ")} darj ho gaye.`;
+  const voice_response_hi = `${customerName} ke ${totalAmount} rupaye udhaar darj ho gaye.`;
 
   return {
     intent: "TRANSACTION",
-    confidence: 0.98,
+    confidence: 0.95,
     clarification_question_hi: null,
     voice_response_hi,
-    actions,
+    actions: [
+      {
+        customer_name: customerName,
+        transaction_type: "UDHAAR",
+        items,
+        total_amount: totalAmount,
+      },
+    ],
     query_answer_hi: null,
   };
 }
