@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { InventoryItem } from "@/types";
+import { formatDistributorOrder, openWhatsAppLink } from "@/utils/whatsapp";
 import {
   Package,
   Plus,
@@ -11,6 +12,7 @@ import {
   PlusCircle,
   Tag,
   X,
+  MessageCircle,
 } from "lucide-react";
 
 interface InventoryTabProps {
@@ -38,6 +40,12 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
   const [category, setCategory] = useState("General");
 
   const lowStockItems = inventory.filter((item) => item.stock <= 5);
+
+  const handleOrderLowStockWhatsApp = () => {
+    if (lowStockItems.length === 0) return;
+    const msg = formatDistributorOrder(lowStockItems);
+    openWhatsAppLink("919876543299", msg);
+  };
 
   const filteredInventory = inventory.filter((item) => {
     if (onlyLowStock && item.stock > 5) return false;
@@ -112,8 +120,8 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
       </div>
 
       {/* Low Stock Banner */}
-      {lowStockItems.length > 0 && !onlyLowStock && (
-        <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-amber-900 text-xs sm:text-sm">
+      {lowStockItems.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 text-xs sm:text-sm">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-amber-200/70 flex items-center justify-center shrink-0">
               <AlertTriangle className="w-4 h-4 text-amber-800" />
@@ -125,12 +133,24 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
               </span>
             </div>
           </div>
-          <button
-            onClick={() => setOnlyLowStock(true)}
-            className="px-3 py-1 bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-bold rounded-lg text-xs transition"
-          >
-            Filter Low Stock
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button
+              onClick={handleOrderLowStockWhatsApp}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-2xs active:scale-95"
+              title="Send Wholesale Purchase Order to Distributor on WhatsApp"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>Order Low Stock via WhatsApp</span>
+            </button>
+            {!onlyLowStock && (
+              <button
+                onClick={() => setOnlyLowStock(true)}
+                className="px-3 py-1.5 bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-bold rounded-xl text-xs transition"
+              >
+                Filter
+              </button>
+            )}
+          </div>
         </div>
       )}
 

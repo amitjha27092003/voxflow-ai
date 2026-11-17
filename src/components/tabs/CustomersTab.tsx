@@ -16,6 +16,7 @@ import {
   ArrowDownLeft,
   X,
   CreditCard,
+  QrCode,
 } from "lucide-react";
 
 interface CustomersTabProps {
@@ -23,6 +24,7 @@ interface CustomersTabProps {
   transactions: Transaction[];
   onAddCustomer: (customer: Customer) => void;
   selectedCustomerId?: string | null;
+  onOpenUPIQR: (customerName: string, amount: number) => void;
 }
 
 export const CustomersTab: React.FC<CustomersTabProps> = ({
@@ -30,6 +32,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   transactions,
   onAddCustomer,
   selectedCustomerId,
+  onOpenUPIQR,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBalance, setFilterBalance] = useState<"ALL" | "DUE" | "ZERO">("ALL");
@@ -201,14 +204,24 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
 
                     {/* WhatsApp Reminder Button */}
                     {hasDue && (
-                      <button
-                        onClick={() => handleSendReminder(cust)}
-                        title="Send WhatsApp Payment Reminder"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="hidden sm:inline">Send Reminder</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => onOpenUPIQR(cust.name, cust.balance)}
+                          title="Show Instant UPI QR Code"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs active:scale-95 transition"
+                        >
+                          <QrCode className="w-3.5 h-3.5 text-slate-600" />
+                          <span className="hidden sm:inline">UPI QR</span>
+                        </button>
+                        <button
+                          onClick={() => handleSendReminder(cust)}
+                          title="Send WhatsApp Payment Reminder"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="hidden sm:inline">Send Reminder</span>
+                        </button>
+                      </div>
                     )}
 
                     <button

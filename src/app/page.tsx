@@ -15,6 +15,7 @@ import { CustomersTab } from "@/components/tabs/CustomersTab";
 import { InventoryTab } from "@/components/tabs/InventoryTab";
 import { RecoveryInsightsTab } from "@/components/tabs/RecoveryInsightsTab";
 import { VoiceDock } from "@/components/VoiceDock";
+import { UPIQRModal } from "@/components/UPIQRModal";
 import { Sparkles, Undo2, X } from "lucide-react";
 
 const STORAGE_KEY_CUSTOMERS = "voxflow_customers_v1";
@@ -38,6 +39,15 @@ export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [activeInsight, setActiveInsight] = useState<ActiveInsight | null>(null);
   const [undoToast, setUndoToast] = useState<string | null>(null);
+  const [upiModalState, setUpiModalState] = useState<{
+    isOpen: boolean;
+    customerName: string;
+    amount: number;
+  }>({
+    isOpen: false,
+    customerName: "",
+    amount: 0,
+  });
 
   // Initialize from localStorage safely on client mount
   useEffect(() => {
@@ -162,7 +172,50 @@ export default function Home() {
       return;
     }
 
-    // 3. Handle TRANSACTION Intent
+    // 3. Handle RESTOCK Intent (Voice Inventory Restocking)
+    if (response.intent === "RESTOCK") {
+      const restockItems = response.restock_items || [];
+      if (restockItems.length === 0) {
+        setUndoToast("No items found to restock.");
+        return;
+      }
+
+      let updatedInventory = [...inventory];
+      const restockedSummary: string[] = [];
+
+      restockItems.forEach((rItem) => {
+        const match = findMatchingInventoryItem(rItem.name);
+        if (match) {
+          updatedInventory = updatedInventory.map((inv) =>
+            inv.id === match.id ? { ...inv, stock: inv.stock + (rItem.qty || 0) } : inv
+          );
+          restockedSummary.push(`${match.name} (+${rItem.qty} ${rItem.unit})`);
+        } else {
+          const newId = `inv-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          updatedInventory.push({
+            id: newId,
+            name: rItem.name,
+            unitPrice: 50,
+            stock: rItem.qty || 10,
+            unit: rItem.unit || "unit",
+            category: "General",
+          });
+          restockedSummary.push(`${rItem.name} (+${rItem.qty} ${rItem.unit})`);
+        }
+      });
+
+      setInventory(updatedInventory);
+      setUndoToast(`Restocked: ${restockedSummary.join(", ")}. Inventory updated.`);
+      setActiveInsight({
+        query: rawTranscript,
+        answer: response.query_answer_hi || `Restocked: ${restockedSummary.join(", ")}`,
+        data: { type: "INVENTORY" },
+      });
+      setActiveTab("inventory");
+      return;
+    }
+
+    // 4. Handle TRANSACTION Intent
     if (!response.actions || response.actions.length === 0) return;
 
     let updatedCustomers = [...customers];
@@ -258,6 +311,15 @@ export default function Home() {
   const handleSelectCustomer = (customerId: string) => {
     setSelectedCustomerId(customerId);
     setActiveTab("customers");
+  };
+
+  // Open Instant UPI QR Code Modal
+  const handleOpenUPIQR = (customerName: string, amount: number) => {
+    setUpiModalState({
+      isOpen: true,
+      customerName,
+      amount,
+    });
   };
 
   // KPI Calculations
@@ -371,6 +433,7 @@ export default function Home() {
             transactions={transactions}
             customers={customers}
             onSelectCustomer={handleSelectCustomer}
+            onOpenUPIQR={handleOpenUPIQR}
           />
         )}
 
@@ -380,6 +443,7 @@ export default function Home() {
             transactions={transactions}
             onAddCustomer={handleAddCustomer}
             selectedCustomerId={selectedCustomerId}
+            onOpenUPIQR={handleOpenUPIQR}
           />
         )}
 
@@ -401,6 +465,14 @@ export default function Home() {
           />
         )}
       </div>
+
+      {/* Instant UPI Payment QR Code Modal */}
+      <UPIQRModal
+        isOpen={upiModalState.isOpen}
+        onClose={() => setUpiModalState((prev) => ({ ...prev, isOpen: false }))}
+        customerName={upiModalState.customerName}
+        amount={upiModalState.amount}
+      />
 
       {/* Sticky Bottom Voice Dock (The Hero Component) */}
       <VoiceDock

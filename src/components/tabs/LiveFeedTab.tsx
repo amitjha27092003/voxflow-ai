@@ -13,18 +13,21 @@ import {
   Mic,
   Search,
   MessageCircle,
+  QrCode,
 } from "lucide-react";
 
 interface LiveFeedTabProps {
   transactions: Transaction[];
   customers: Customer[];
   onSelectCustomer: (customerId: string) => void;
+  onOpenUPIQR: (customerName: string, amount: number) => void;
 }
 
 export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
   transactions,
   customers,
   onSelectCustomer,
+  onOpenUPIQR,
 }) => {
   const [filterType, setFilterType] = useState<"ALL" | "UDHAAR" | "JAMA">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -232,13 +235,22 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
                     Phone: {tx.customerPhone || "Not configured"}
                   </span>
 
-                  <button
-                    onClick={() => handleWhatsAppParchi(tx)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                    Send Receipt
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onOpenUPIQR(tx.customerName, tx.totalAmount)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs active:scale-95 transition"
+                    >
+                      <QrCode className="w-3.5 h-3.5 text-slate-600" />
+                      <span>UPI QR</span>
+                    </button>
+                    <button
+                      onClick={() => handleWhatsAppParchi(tx)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      Send Receipt
+                    </button>
+                  </div>
                 </div>
               </div>
             );

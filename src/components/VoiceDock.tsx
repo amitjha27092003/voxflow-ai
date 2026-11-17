@@ -28,6 +28,8 @@ interface VoiceDockProps {
 
 const DEMO_PILLS = [
   "Sharma ji ke 2 kilo aata aur 1 Amul butter udhaar likh de",
+  "Aadha kilo cheeni aur dedh kilo toor dal udhaar likh do",
+  "20 kilo aata aur 10 packet Amul butter stock mein add kar do",
   "Rahul ke 500 rupaye jama kar le",
   "Pichli entry cancel kar do",
   "Sabse zyada udhaar kiska baaki hai?",

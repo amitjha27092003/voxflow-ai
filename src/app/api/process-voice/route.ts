@@ -81,7 +81,13 @@ INTENTS:
    - Phrases: "pichli entry cancel kar do", "last entry delete karo", "undo", "cancel last entry", "pichli entry hata do", "पिछली एंट्री कैंसिल कर दो", "पिछला हटाओ", "गलत लिख दिया".
    - Return intent: "UNDO_LAST", actions: [], voice_response_hi: "Pichli entry cancel kar di gayi hai.", query_answer_hi: "The most recent transaction has been cancelled and reversed."
 
-2. "QUERY":
+2. "RESTOCK":
+   - Triggered when the merchant announces incoming inventory stock or supplier deliveries.
+   - Phrases: "20 kilo aata aur 10 packet Amul butter stock mein add kar do", "restock 10 packet maggi", "स्टॉक में 20 किलो आटा जोड़ो", "स्टॉक बढ़ाओ", "माल आया है 50 किलो चीनी".
+   - Identify matched inventory items from catalog and incoming quantities.
+   - Return intent: "RESTOCK", actions: [], restock_items: [ { "name": string, "qty": number, "unit": string } ], voice_response_hi: "Stock safaltapoorvak update ho gaya hai.", query_answer_hi: "Inventory stock updated successfully."
+
+3. "QUERY":
    - Triggered for analytical or ledger questions:
      * "Sabse zyada udhaar kiska baaki hai?" / "highest debtor": identify the customer with the highest positive balance.
      * "Kaun sa samaan kam hai?" / "low stock": list inventory items where stock <= 5 units.
@@ -90,7 +96,7 @@ INTENTS:
      * Specific customer balance questions (e.g., "Sharma ji ka kitna baaki hai?").
    - Set intent: "QUERY", actions: [], query_answer_hi: detailed English summary, voice_response_hi: spoken Hinglish answer under 15 words.
 
-3. "TRANSACTION":
+4. "TRANSACTION":
    - Record UDHAAR (credit given) or JAMA (payment received).
    - Convert Devanagari customer names to clean English ("अंकित" -> "Ankit").
    - Map items accurately to inventory names:
@@ -102,15 +108,25 @@ INTENTS:
      * नमक / salt -> "Tata Salt" (₹28/kg)
      * मैगी / maggi -> "Maggi Noodles" (₹14/pack)
      * चाय / tea -> "Red Label Tea" (₹140/pack)
-   - Compute exact totals: qty * unit_price. Sum all items for total_amount.
-   - voice_response_hi: e.g. "Ankit ke 144 rupaye udhaar darj ho gaye."
+   - INDIAN FRACTIONAL UNITS MATH:
+     * Spoken Indian fractions must be converted to exact decimals:
+       - "paav kilo" / "paav" / "पाव" = 0.25
+       - "aadha kilo" / "aadha" / "आधा" = 0.5
+       - "paune kilo" / "paune" / "पौने" = 0.75
+       - "sawa kilo" / "sawa" / "सवा" = 1.25
+       - "dedh kilo" / "dedh" / "डेढ़" = 1.5
+       - "dhai kilo" / "dhai" / "ढाई" = 2.5
+       - "ek darjan" / "darjan" / "दर्जन" = 12
+       - "aadha darjan" / "आधा दर्जन" = 6
+     * Compute exact totals: qty * unit_price (e.g., 0.5 kg Cheeni @ 44 = ₹22; 0.25 kg Butter @ 56 = ₹14; 1.5 kg Toor Dal @ 160 = ₹240). Round to nearest rupee if decimal.
+     * voice_response_hi: e.g. "Ankit ke 144 rupaye udhaar darj ho gaye."
 
-4. "CLARIFICATION_NEEDED":
+5. "CLARIFICATION_NEEDED":
    - If audio is unclear or neither items nor amounts can be determined.
 
 Output JSON Schema:
 {
-  "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST",
+  "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK",
   "confidence": number,
   "clarification_question_hi": string | null,
   "voice_response_hi": string,
@@ -128,6 +144,13 @@ Output JSON Schema:
         }
       ],
       "total_amount": number
+    }
+  ],
+  "restock_items": [
+    {
+      "name": string,
+      "qty": number,
+      "unit": string
     }
   ],
   "query_answer_hi": string | null
@@ -208,6 +231,127 @@ function parseBilingualLocally(
       actions: [],
       query_answer_hi: "The most recent transaction has been cancelled and reversed.",
     };
+  }
+
+  // Helper for parsing spoken Indian quantities and fractional units
+  const parseIndianQty = (valStr?: string, defaultQty: number = 1): number => {
+    if (!valStr) return defaultQty;
+    const s = valStr.trim().toLowerCase();
+
+    // Indian Fractions
+    if (s === "paav" || s === "pao" || s === "pav" || s === "पाव") return 0.25;
+    if (s === "aadha" || s === "adha" || s === "आधा") return 0.5;
+    if (s === "paune" || s === "pauna" || s === "पौने") return 0.75;
+    if (s === "sawa" || s === "सवा") return 1.25;
+    if (s === "dedh" || s === "deedh" || s === "डेढ़") return 1.5;
+    if (s === "dhai" || s === "dhaai" || s === "ढाई") return 2.5;
+    if (s.includes("aadha darjan") || s.includes("आधा दर्जन")) return 6;
+    if (s.includes("darjan") || s.includes("दर्जन") || s === "doz" || s === "dozen") return 12;
+
+    // Number words
+    if (s === "ek" || s === "एक") return 1;
+    if (s === "do" || s === "दो") return 2;
+    if (s === "teen" || s === "तीन") return 3;
+    if (s === "chaar" || s === "चार") return 4;
+    if (s === "paanch" || s === "पांच") return 5;
+    if (s === "chhah" || s === "छह") return 6;
+    if (s === "saat" || s === "सात") return 7;
+    if (s === "aath" || s === "आठ") return 8;
+    if (s === "nau" || s === "नौ") return 9;
+    if (s === "dus" || s === "दस") return 10;
+    if (s === "pandrah" || s === "पंद्रह") return 15;
+    if (s === "bees" || s === "बीस") return 20;
+    if (s === "pachees" || s === "पच्चीस") return 25;
+    if (s === "pachaas" || s === "पचास") return 50;
+
+    const parsedNum = parseFloat(s);
+    return isNaN(parsedNum) ? defaultQty : parsedNum;
+  };
+
+  const qtyPattern = "(\\d+(?:\\.\\d+)?|पाव|आधा|पौने|सवा|डेढ़|ढाई|दर्जन|paav|pao|aadha|adha|paune|sawa|dedh|dhai|darjan|एक|दो|तीन|चार|पांच|दस|बीस|पचास|ek|do|teen|chaar|paanch|dus|bees)";
+
+  const extractItemQty = (targetRegex: string, fallbackQty: number = 1): number => {
+    const m = text.match(new RegExp(targetRegex, "i"));
+    if (!m || !m[1]) return fallbackQty;
+    return parseIndianQty(m[1], fallbackQty);
+  };
+
+  // 2. RESTOCK INTENT
+  const isRestock =
+    lower.includes("stock mein add") ||
+    lower.includes("stock me add") ||
+    lower.includes("restock") ||
+    lower.includes("stock badhao") ||
+    lower.includes("maal aaya") ||
+    lower.includes("stock me daal") ||
+    text.includes("स्टॉक में जोड़ो") ||
+    text.includes("स्टॉक बढ़ाओ") ||
+    text.includes("स्टॉक में ऐड") ||
+    text.includes("माल आया");
+
+  if (isRestock) {
+    const restockItems: { name: string; qty: number; unit: string }[] = [];
+
+    // Aashirvaad Atta
+    if (text.includes("आटा") || lower.includes("aata") || lower.includes("atta")) {
+      const q = extractItemQty(`(?:${qtyPattern}\\s*(?:किलो|kg|kilo)?\\s*(?:आटा|aata|atta))`, 20);
+      restockItems.push({ name: "Aashirvaad Atta", qty: q, unit: "kg" });
+    }
+
+    // Amul Butter
+    if (text.includes("बटर") || text.includes("मक्खन") || lower.includes("butter") || lower.includes("makhan")) {
+      const q = extractItemQty(`(?:${qtyPattern}\\s*(?:पैकेट|pack|packet)?\\s*(?:अमूल\\s*)?(?:बटर|मक्खन|butter|makhan))`, 10);
+      restockItems.push({ name: "Amul Butter", qty: q, unit: "pack" });
+    }
+
+    // Cheeni / Sugar
+    if (text.includes("चीनी") || lower.includes("cheeni") || lower.includes("sugar")) {
+      const q = extractItemQty(`(?:${qtyPattern}\\s*(?:किलो|kg|kilo)?\\s*(?:चीनी|cheeni|sugar))`, 25);
+      restockItems.push({ name: "Cheeni / Sugar", qty: q, unit: "kg" });
+    }
+
+    // Fortune Sunflower Oil
+    if (text.includes("तेल") || lower.includes("tel") || lower.includes("oil")) {
+      const q = extractItemQty(`(?:${qtyPattern}\\s*(?:लीटर|liter|litre|l)?\\s*(?:तेल|tel|oil))`, 15);
+      restockItems.push({ name: "Fortune Sunflower Oil", qty: q, unit: "L" });
+    }
+
+    // Toor Dal
+    if (text.includes("दाल") || lower.includes("dal") || lower.includes("toor")) {
+      const q = extractItemQty(`(?:${qtyPattern}\\s*(?:किलो|kg|kilo)?\\s*(?:दाल|dal|toor))`, 10);
+      restockItems.push({ name: "Toor Dal", qty: q, unit: "kg" });
+    }
+
+    // Tata Salt
+    if (text.includes("नमक") || lower.includes("salt") || lower.includes("namak")) {
+      const q = extractItemQty(`(?:${qtyPattern}\\s*(?:किलो|kg|kilo)?\\s*(?:नमक|salt|namak))`, 20);
+      restockItems.push({ name: "Tata Salt", qty: q, unit: "kg" });
+    }
+
+    // Maggi Noodles
+    if (text.includes("मैगी") || text.includes("नूडल्स") || lower.includes("maggi") || lower.includes("noodles")) {
+      const q = extractItemQty(`(?:${qtyPattern}\\s*(?:पैकेट|pack)?\\s*(?:मैगी|maggi|noodles))`, 24);
+      restockItems.push({ name: "Maggi Noodles", qty: q, unit: "pack" });
+    }
+
+    // Red Label Tea
+    if (text.includes("चाय") || lower.includes("chai") || lower.includes("tea")) {
+      const q = extractItemQty(`(?:${qtyPattern}\\s*(?:पैकेट|pack)?\\s*(?:चाय|chai|tea))`, 12);
+      restockItems.push({ name: "Red Label Tea", qty: q, unit: "pack" });
+    }
+
+    if (restockItems.length > 0) {
+      const spokenSummary = restockItems.map((r) => `${r.qty} ${r.unit} ${r.name}`).join(" aur ");
+      return {
+        intent: "RESTOCK",
+        confidence: 0.98,
+        clarification_question_hi: null,
+        voice_response_hi: `${spokenSummary} stock mein add ho gaya hai.`.slice(0, 80),
+        actions: [],
+        restock_items: restockItems,
+        query_answer_hi: `Successfully restocked ${restockItems.length} products in inventory:\n${restockItems.map((r) => `• ${r.name}: +${r.qty} ${r.unit}`).join("\n")}`,
+      };
+    }
   }
 
   // 2. CONVERSATIONAL BUSINESS ANALYTICS (QUERY INTENT)
@@ -435,91 +579,78 @@ function parseBilingualLocally(
     };
   }
 
-  // 4. Match Catalog Items (Devanagari & Roman)
+  // 4. Match Catalog Items (Devanagari & Roman with Indian Fractional Quantities)
   const items: VoiceActionItem[] = [];
   let totalAmount = 0;
 
-  const getQty = (regexStr: string, defaultQty: number = 1): number => {
-    const match = text.match(new RegExp(regexStr, "i"));
-    if (!match) return defaultQty;
-    const val = match[1]?.trim();
-    if (val === "2" || val === "दो") return 2;
-    if (val === "1" || val === "एक") return 1;
-    if (val === "3" || val === "तीन") return 3;
-    if (val === "4" || val === "चार") return 4;
-    if (val === "5" || val === "पांच") return 5;
-    const num = parseInt(val, 10);
-    return isNaN(num) ? defaultQty : num;
-  };
-
   // Cheeni / Sugar (₹44/kg)
   if (text.includes("चीनी") || lower.includes("cheeni") || lower.includes("chini") || lower.includes("sugar")) {
-    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:किलो|kg|kilo)?\\s*(?:चीनी|cheeni|chini|sugar))", 1);
+    const qty = extractItemQty(`(?:${qtyPattern}\\s*(?:किलो|kg|kilo)?\\s*(?:चीनी|cheeni|chini|sugar))`, 1);
     const price = 44;
-    const total = qty * price;
+    const total = Math.round(qty * price);
     items.push({ name: "Cheeni / Sugar", qty, unit: "kg", unit_price: price, total });
     totalAmount += total;
   }
 
   // Amul Butter (₹56/pack)
   if (text.includes("बटर") || text.includes("मक्खन") || lower.includes("butter") || lower.includes("makhan")) {
-    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:पैकेट|pack|packet)?\\s*(?:अमूल\\s*)?(?:बटर|मक्खन|butter|makhan))", 1);
+    const qty = extractItemQty(`(?:${qtyPattern}\\s*(?:पैकेट|pack|packet)?\\s*(?:अमूल\\s*)?(?:बटर|मक्खन|butter|makhan))`, 1);
     const price = 56;
-    const total = qty * price;
+    const total = Math.round(qty * price);
     items.push({ name: "Amul Butter", qty, unit: "pack", unit_price: price, total });
     totalAmount += total;
   }
 
   // Aashirvaad Atta (₹45/kg)
   if (text.includes("आटा") || lower.includes("aata") || lower.includes("atta")) {
-    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:किलो|kg|kilo)?\\s*(?:आटा|aata|atta))", 2);
+    const qty = extractItemQty(`(?:${qtyPattern}\\s*(?:किलो|kg|kilo)?\\s*(?:आटा|aata|atta))`, 2);
     const price = 45;
-    const total = qty * price;
+    const total = Math.round(qty * price);
     items.push({ name: "Aashirvaad Atta", qty, unit: "kg", unit_price: price, total });
     totalAmount += total;
   }
 
   // Fortune Sunflower Oil (₹135/L)
   if (text.includes("तेल") || lower.includes("tel") || lower.includes("oil") || lower.includes("fortune")) {
-    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:लीटर|liter|litre|l)?\\s*(?:तेल|tel|oil))", 1);
+    const qty = extractItemQty(`(?:${qtyPattern}\\s*(?:लीटर|liter|litre|l)?\\s*(?:तेल|tel|oil))`, 1);
     const price = 135;
-    const total = qty * price;
+    const total = Math.round(qty * price);
     items.push({ name: "Fortune Sunflower Oil", qty, unit: "L", unit_price: price, total });
     totalAmount += total;
   }
 
   // Toor Dal (₹160/kg)
   if (text.includes("दाल") || lower.includes("dal") || lower.includes("daal") || lower.includes("toor")) {
-    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:किलो|kg|kilo)?\\s*(?:दाल|dal|daal|toor))", 1);
+    const qty = extractItemQty(`(?:${qtyPattern}\\s*(?:किलो|kg|kilo)?\\s*(?:दाल|dal|daal|toor))`, 1);
     const price = 160;
-    const total = qty * price;
+    const total = Math.round(qty * price);
     items.push({ name: "Toor Dal", qty, unit: "kg", unit_price: price, total });
     totalAmount += total;
   }
 
   // Tata Salt (₹28/kg)
   if (text.includes("नमक") || lower.includes("salt") || lower.includes("namak")) {
-    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:किलो|kg|kilo)?\\s*(?:नमक|salt|namak))", 1);
+    const qty = extractItemQty(`(?:${qtyPattern}\\s*(?:किलो|kg|kilo)?\\s*(?:नमक|salt|namak))`, 1);
     const price = 28;
-    const total = qty * price;
+    const total = Math.round(qty * price);
     items.push({ name: "Tata Salt", qty, unit: "kg", unit_price: price, total });
     totalAmount += total;
   }
 
   // Maggi Noodles (₹14/pack)
   if (text.includes("मैगी") || text.includes("नूडल्स") || lower.includes("maggi") || lower.includes("noodles")) {
-    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:पैकेट|pack)?\\s*(?:मैगी|maggi|noodles))", 1);
+    const qty = extractItemQty(`(?:${qtyPattern}\\s*(?:पैकेट|pack)?\\s*(?:मैगी|maggi|noodles))`, 1);
     const price = 14;
-    const total = qty * price;
+    const total = Math.round(qty * price);
     items.push({ name: "Maggi Noodles", qty, unit: "pack", unit_price: price, total });
     totalAmount += total;
   }
 
   // Red Label Tea (₹140/pack)
   if (text.includes("चाय") || lower.includes("chai") || lower.includes("tea")) {
-    const qty = getQty("(?:(\\d+|एक|दो|तीन|चार|पांच)\\s*(?:पैकेट|pack)?\\s*(?:चाय|chai|tea))", 1);
+    const qty = extractItemQty(`(?:${qtyPattern}\\s*(?:पैकेट|pack)?\\s*(?:चाय|chai|tea))`, 1);
     const price = 140;
-    const total = qty * price;
+    const total = Math.round(qty * price);
     items.push({ name: "Red Label Tea", qty, unit: "pack", unit_price: price, total });
     totalAmount += total;
   }

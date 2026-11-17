@@ -51,12 +51,19 @@ export interface VoiceAction {
   total_amount: number;
 }
 
+export interface RestockItem {
+  name: string;
+  qty: number;
+  unit: string;
+}
+
 export interface VoiceProcessResponse {
-  intent: "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST";
+  intent: "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK";
   confidence: number;
   clarification_question_hi: string | null;
   voice_response_hi: string;
   actions: VoiceAction[];
+  restock_items?: RestockItem[];
   query_answer_hi: string | null;
   insight_data?: {
     type?: "DEBTOR" | "INVENTORY" | "SUMMARY";

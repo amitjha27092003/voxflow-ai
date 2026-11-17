@@ -1,4 +1,4 @@
-import { Transaction, Customer } from "@/types";
+import { Transaction, Customer, InventoryItem } from "@/types";
 
 export function formatWhatsAppBill(transaction: Transaction, currentBalance: number): string {
   const dateStr = new Date(transaction.timestamp).toLocaleString("en-IN", {
@@ -59,6 +59,42 @@ Please settle your pending balance via UPI or Cash at your earliest convenience.
 
 Thank you!
 Gupta Kirana Store • Powered by VoxFlow AI`;
+
+  return message;
+}
+
+export function formatDistributorOrder(lowStockItems: InventoryItem[]): string {
+  const dateStr = new Date().toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  const itemsList = lowStockItems
+    .map((item, idx) => {
+      // Suggesting standard retail restock quantity
+      const suggestQty = item.unit === "kg" ? 25 : item.unit === "L" ? 20 : 24;
+      return `${idx + 1}. *${item.name}*\n   Current Stock: ${item.stock} ${item.unit} | Order Quantity: ${suggestQty} ${item.unit}`;
+    })
+    .join("\n\n");
+
+  const message = `📦 *PURCHASE ORDER — GUPTA KIRANA STORE*
+_Wholesale Restock Request • Date: ${dateStr}_
+━━━━━━━━━━━━━━━━━━━━
+Dear Distributor / Vendor,
+
+Please dispatch the following replenishment items to our store:
+
+${itemsList}
+
+📍 *Delivery Location:*
+Gupta Kirana Store, Shop #12, Main Market
+📞 Contact: +91 98765 43210
+💳 Payment: Immediate on delivery via UPI/Cheque
+
+Thank you!
+━━━━━━━━━━━━━━━━━━━━
+_Generated via VoxFlow AI Retail Copilot_`;
 
   return message;
 }
