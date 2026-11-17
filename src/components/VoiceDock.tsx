@@ -161,16 +161,18 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
       const data: VoiceProcessResponse = await res.json();
       setLastResponse(data);
 
-      // Trigger crisp audio confirmation with SpeechSynthesis
-      if (data.voice_response_hi) {
-        speakHindi(data.voice_response_hi);
+      // Trigger smooth, natural Indian human audio confirmation with SpeechSynthesis
+      const spokenText = data.ttsText || data.voiceFeedback || data.voice_response_hi;
+      if (spokenText) {
+        speakHindi(spokenText);
       }
 
-      // Propagate state update if intent is TRANSACTION, UNDO_LAST, or QUERY
+      // Propagate state update if intent is TRANSACTION, UNDO_LAST, QUERY, or RESTOCK
       if (
         (data.intent === "TRANSACTION" && data.actions && data.actions.length > 0) ||
         data.intent === "UNDO_LAST" ||
-        data.intent === "QUERY"
+        data.intent === "QUERY" ||
+        data.intent === "RESTOCK"
       ) {
         onVoiceSuccess(data, transcriptText);
       }
@@ -254,7 +256,13 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
                         : "Clarification Needed"}
                     </span>
                     <button
-                      onClick={() => speakHindi(lastResponse.voice_response_hi)}
+                      onClick={() =>
+                        speakHindi(
+                          lastResponse.ttsText ||
+                            lastResponse.voiceFeedback ||
+                            lastResponse.voice_response_hi
+                        )
+                      }
                       title="Replay Voice Audio"
                       className="p-1 hover:bg-white/10 rounded-full transition text-slate-400 hover:text-white"
                     >
@@ -262,7 +270,7 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
                     </button>
                   </div>
                   <div className="text-sm font-semibold text-white mt-0.5">
-                    {lastResponse.voice_response_hi}
+                    {lastResponse.voiceFeedback || lastResponse.voice_response_hi}
                   </div>
                   {lastResponse.query_answer_hi && (
                     <div className="text-xs text-slate-300 mt-1.5 bg-white/5 p-2.5 rounded-lg border border-white/10 font-mono whitespace-pre-line leading-relaxed">

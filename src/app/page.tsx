@@ -158,7 +158,7 @@ export default function Home() {
     if (response.intent === "QUERY") {
       setActiveInsight({
         query: rawTranscript,
-        answer: response.query_answer_hi || response.voice_response_hi,
+        answer: response.query_answer_hi || response.voiceFeedback || response.voice_response_hi,
         data: response.insight_data,
       });
 

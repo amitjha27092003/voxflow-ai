@@ -79,13 +79,13 @@ INTENTS:
 1. "UNDO_LAST":
    - Triggered when user asks to cancel, delete, undo, or reverse the last entry.
    - Phrases: "pichli entry cancel kar do", "last entry delete karo", "undo", "cancel last entry", "pichli entry hata do", "पिछली एंट्री कैंसिल कर दो", "पिछला हटाओ", "गलत लिख दिया".
-   - Return intent: "UNDO_LAST", actions: [], voice_response_hi: "Pichli entry cancel kar di gayi hai.", query_answer_hi: "The most recent transaction has been cancelled and reversed."
+   - Return intent: "UNDO_LAST", actions: [], voiceFeedback: "Pichli entry cancel kar di gayi hai.", voice_response_hi: "Pichli entry cancel kar di gayi hai.", ttsText: "पिछली एंट्री कैंसिल कर दी गई है।", query_answer_hi: "The most recent transaction has been cancelled and reversed."
 
 2. "RESTOCK":
    - Triggered when the merchant announces incoming inventory stock or supplier deliveries.
    - Phrases: "20 kilo aata aur 10 packet Amul butter stock mein add kar do", "restock 10 packet maggi", "स्टॉक में 20 किलो आटा जोड़ो", "स्टॉक बढ़ाओ", "माल आया है 50 किलो चीनी".
    - Identify matched inventory items from catalog and incoming quantities.
-   - Return intent: "RESTOCK", actions: [], restock_items: [ { "name": string, "qty": number, "unit": string } ], voice_response_hi: "Stock safaltapoorvak update ho gaya hai.", query_answer_hi: "Inventory stock updated successfully."
+   - Return intent: "RESTOCK", actions: [], restock_items: [ { "name": string, "qty": number, "unit": string } ], voiceFeedback: "Stock safaltapoorvak update ho gaya hai.", voice_response_hi: "Stock safaltapoorvak update ho gaya hai.", ttsText: "स्टॉक में सामान सफलतापूर्वक जोड़ दिया गया है।", query_answer_hi: "Inventory stock updated successfully."
 
 3. "QUERY":
    - Triggered for analytical or ledger questions:
@@ -94,7 +94,7 @@ INTENTS:
      * "Aaj ka hisaab batao" / "today's summary": summarize total sales, collections, and total credit.
      * "Aaj kiska udhaar baaki hai?": list all customers with balance > 0.
      * Specific customer balance questions (e.g., "Sharma ji ka kitna baaki hai?").
-   - Set intent: "QUERY", actions: [], query_answer_hi: detailed English summary, voice_response_hi: spoken Hinglish answer under 15 words.
+   - Set intent: "QUERY", actions: [], query_answer_hi: detailed English summary, voiceFeedback: spoken Roman Hinglish answer under 15 words, ttsText: natural Devanagari Hindi speech text.
 
 4. "TRANSACTION":
    - Record UDHAAR (credit given) or JAMA (payment received).
@@ -119,10 +119,16 @@ INTENTS:
        - "ek darjan" / "darjan" / "दर्जन" = 12
        - "aadha darjan" / "आधा दर्जन" = 6
      * Compute exact totals: qty * unit_price (e.g., 0.5 kg Cheeni @ 44 = ₹22; 0.25 kg Butter @ 56 = ₹14; 1.5 kg Toor Dal @ 160 = ₹240). Round to nearest rupee if decimal.
-     * voice_response_hi: e.g. "Ankit ke 144 rupaye udhaar darj ho gaye."
+     * voiceFeedback: clean Roman Hinglish e.g. "Sharma Ji ke 146 rupaye udhaar darj ho gaye."
+     * ttsText: natural Devanagari Hindi script for speech synthesis e.g. "शर्मा जी के 146 रुपये उधार दर्ज हो गए हैं।"
 
 5. "CLARIFICATION_NEEDED":
    - If audio is unclear or neither items nor amounts can be determined.
+
+TTS & VOICE SPEECH RULES:
+- "voiceFeedback": Clean Roman Hinglish string under 15 words for on-screen notification toast (e.g., "Sharma Ji ke 146 rupaye udhaar darj ho gaye.").
+- "voice_response_hi": Identical to "voiceFeedback" for backward compatibility.
+- "ttsText": Natural, fluent Devanagari Hindi script specifically for the browser's speech synthesis engine so it speaks like a natural Indian human in one smooth breath (e.g., "शर्मा जी के 146 रुपये उधार दर्ज हो गए हैं।", "राहुल के 500 रुपये जमा दर्ज हो गए हैं।").
 
 Output JSON Schema:
 {
@@ -130,6 +136,8 @@ Output JSON Schema:
   "confidence": number,
   "clarification_question_hi": string | null,
   "voice_response_hi": string,
+  "voiceFeedback": string,
+  "ttsText": string,
   "actions": [
     {
       "customer_name": string,
@@ -176,6 +184,18 @@ Output JSON Schema:
         const result: any = await Promise.race([generatePromise, timeoutPromise]);
         const responseText = result.response.text();
         const parsed: VoiceProcessResponse = JSON.parse(responseText);
+
+        // Normalize voiceFeedback and ttsText
+        if (!parsed.voiceFeedback && parsed.voice_response_hi) {
+          parsed.voiceFeedback = parsed.voice_response_hi;
+        }
+        if (!parsed.voice_response_hi && parsed.voiceFeedback) {
+          parsed.voice_response_hi = parsed.voiceFeedback;
+        }
+        if (!parsed.ttsText) {
+          parsed.ttsText = parsed.voiceFeedback || parsed.voice_response_hi;
+        }
+
         return NextResponse.json(parsed);
       } catch (geminiError: any) {
         console.warn(`Gemini API attempt with ${modelName} error:`, geminiError.message);
@@ -187,7 +207,9 @@ Output JSON Schema:
       intent: "CLARIFICATION_NEEDED",
       confidence: 0,
       clarification_question_hi: "GEMINI_API_KEY is missing in Vercel settings. Please add it to your environment variables.",
+      voiceFeedback: "Gemini API key configure nahi hai, Vercel settings check karein.",
       voice_response_hi: "Gemini API key configure nahi hai, Vercel settings check karein.",
+      ttsText: "जेमिनी एपीआई की कॉन्फ़िगर नहीं है, वर्सेल सेटिंग्स चेक करें।",
       actions: [],
       query_answer_hi: "Missing GEMINI_API_KEY. Please configure GEMINI_API_KEY in Vercel Project Settings > Environment Variables.",
     } as VoiceProcessResponse);
@@ -196,6 +218,26 @@ Output JSON Schema:
   // Fallback parser handling UNDO_LAST, Conversational Analytics, and Transactions
   const parsedResponse = parseBilingualLocally(transcript, customers, inventory, transactions);
   return NextResponse.json(parsedResponse);
+}
+
+// Convert customer names to natural Devanagari Hindi for TTS voice pronunciation
+function toHindiCustomerName(name: string): string {
+  const map: Record<string, string> = {
+    "Sharma Ji": "शर्मा जी",
+    "Ankit": "अंकित",
+    "Rahul Verma": "राहुल वर्मा",
+    "Rahul": "राहुल",
+    "Sunita Devi": "सुनीता देवी",
+    "Sunita": "सुनीता",
+    "Gupta General Store": "गुप्ता जी",
+    "Gupta": "गुप्ता जी",
+    "Priya Singh": "प्रिया सिंह",
+    "Priya": "प्रिया",
+    "Ramesh Kumar": "रमेश कुमार",
+    "Ramesh": "रमेश",
+    "Walk-in Customer": "ग्राहक",
+  };
+  return map[name] || name;
 }
 
 // Robust Bilingual Parser (Devanagari Hindi + Roman Hinglish)
@@ -227,7 +269,9 @@ function parseBilingualLocally(
       intent: "UNDO_LAST",
       confidence: 0.98,
       clarification_question_hi: null,
+      voiceFeedback: "Pichli entry cancel kar di gayi hai.",
       voice_response_hi: "Pichli entry cancel kar di gayi hai.",
+      ttsText: "पिछली एंट्री कैंसिल कर दी गई है।",
       actions: [],
       query_answer_hi: "The most recent transaction has been cancelled and reversed.",
     };
@@ -342,11 +386,14 @@ function parseBilingualLocally(
 
     if (restockItems.length > 0) {
       const spokenSummary = restockItems.map((r) => `${r.qty} ${r.unit} ${r.name}`).join(" aur ");
+      const hinglishResp = `${spokenSummary} stock mein add ho gaya hai.`.slice(0, 80);
       return {
         intent: "RESTOCK",
         confidence: 0.98,
         clarification_question_hi: null,
-        voice_response_hi: `${spokenSummary} stock mein add ho gaya hai.`.slice(0, 80),
+        voiceFeedback: hinglishResp,
+        voice_response_hi: hinglishResp,
+        ttsText: "स्टॉक में सामान सफलतापूर्वक जोड़ दिया गया है।",
         actions: [],
         restock_items: restockItems,
         query_answer_hi: `Successfully restocked ${restockItems.length} products in inventory:\n${restockItems.map((r) => `• ${r.name}: +${r.qty} ${r.unit}`).join("\n")}`,
@@ -367,11 +414,14 @@ function parseBilingualLocally(
     const overdue = [...customers].filter((c) => c.balance > 0).sort((a, b) => b.balance - a.balance);
     if (overdue.length > 0) {
       const top = overdue[0];
+      const hName = toHindiCustomerName(top.name);
       return {
         intent: "QUERY",
         confidence: 0.98,
         clarification_question_hi: null,
+        voiceFeedback: `${top.name} ke sabse zyada ${top.balance} rupaye baaki hain.`,
         voice_response_hi: `${top.name} ke sabse zyada ${top.balance} rupaye baaki hain.`,
+        ttsText: `${hName} के सबसे ज्यादा ${top.balance} रुपये बाकी हैं।`,
         actions: [],
         query_answer_hi: `Highest pending credit is ${top.name} with ₹${top.balance.toLocaleString("en-IN")} outstanding.`,
         insight_data: {
@@ -385,7 +435,9 @@ function parseBilingualLocally(
         intent: "QUERY",
         confidence: 0.95,
         clarification_question_hi: null,
+        voiceFeedback: "Kisi bhi grahak ka udhaar baaki nahi hai.",
         voice_response_hi: "Kisi bhi grahak ka udhaar baaki nahi hai.",
+        ttsText: "किसी भी ग्राहक का उधार बाकी नहीं है।",
         actions: [],
         query_answer_hi: "All customer accounts are settled. No pending credit balances.",
       };
@@ -411,7 +463,9 @@ function parseBilingualLocally(
         intent: "QUERY",
         confidence: 0.98,
         clarification_question_hi: null,
+        voiceFeedback: `${spokenNames} ka stock 5 se kam bacha hai.`,
         voice_response_hi: `${spokenNames} ka stock 5 se kam bacha hai.`,
+        ttsText: `${lowStock.length} सामानों का स्टॉक 5 से कम बचा हुआ है।`,
         actions: [],
         query_answer_hi: `${lowStock.length} items are running low on stock:\n${names}`,
         insight_data: {
@@ -425,7 +479,9 @@ function parseBilingualLocally(
         intent: "QUERY",
         confidence: 0.95,
         clarification_question_hi: null,
+        voiceFeedback: "Sabhi samaan ka stock paryapt hai.",
         voice_response_hi: "Sabhi samaan ka stock paryapt hai.",
+        ttsText: "सभी सामानों का स्टॉक पर्याप्त है।",
         actions: [],
         query_answer_hi: "All products currently have healthy inventory levels (> 5 units).",
       };
@@ -466,7 +522,9 @@ function parseBilingualLocally(
       intent: "QUERY",
       confidence: 0.98,
       clarification_question_hi: null,
+      voiceFeedback: `Aaj ki bikri ${todaySales} rupaye aur jama ${todayJama} rupaye hai.`,
       voice_response_hi: `Aaj ki bikri ${todaySales} rupaye aur jama ${todayJama} rupaye hai.`,
+      ttsText: `आज की कुल बिक्री ${todaySales} रुपये और जमा ${todayJama} रुपये है।`,
       actions: [],
       query_answer_hi: `Today's Ledger Summary:\n• Today's Revenue: ₹${todaySales.toLocaleString("en-IN")}\n• Collected Today: ₹${todayJama.toLocaleString("en-IN")}\n• Total Pending Credit: ₹${totalUdhaar.toLocaleString("en-IN")}`,
       insight_data: {
@@ -493,11 +551,14 @@ function parseBilingualLocally(
     for (const c of customers) {
       const first = c.name.toLowerCase().split(" ")[0];
       if (lower.includes(first) || text.includes(c.name)) {
+        const hName = toHindiCustomerName(c.name);
         return {
           intent: "QUERY",
           confidence: 0.95,
           clarification_question_hi: null,
+          voiceFeedback: `${c.name} ke ${c.balance} rupaye baaki hain.`,
           voice_response_hi: `${c.name} ke ${c.balance} rupaye baaki hain.`,
+          ttsText: `${hName} के ${c.balance} रुपये बाकी हैं।`,
           actions: [],
           query_answer_hi: `Total pending credit for ${c.name} is ₹${c.balance}.`,
         };
@@ -512,7 +573,9 @@ function parseBilingualLocally(
       intent: "QUERY",
       confidence: 0.98,
       clarification_question_hi: null,
+      voiceFeedback: `${overdue.length} grahakon ke kul ${totalBaaki} rupaye baaki hain.`,
       voice_response_hi: `${overdue.length} grahakon ke kul ${totalBaaki} rupaye baaki hain.`,
+      ttsText: `${overdue.length} ग्राहकों के कुल ${totalBaaki} रुपये बाकी हैं।`,
       actions: [],
       query_answer_hi: `Total ₹${totalBaaki.toLocaleString("en-IN")} pending across ${overdue.length} customer accounts:\n${summaryList}`,
     };
@@ -562,11 +625,15 @@ function parseBilingualLocally(
   if (isJama && !text.includes("चीनी") && !text.includes("बटर") && !text.includes("आटा") && !text.includes("तेल") && !lower.includes("cheeni") && !lower.includes("aata")) {
     const amtMatch = text.match(/\b(\d+)\b/);
     const amt = amtMatch ? parseInt(amtMatch[1], 10) : 500;
+    const hindiCust = toHindiCustomerName(customerName);
+    const hinglishResp = `${customerName} ke ${amt} rupaye jama darj ho gaye.`;
     return {
       intent: "TRANSACTION",
       confidence: 0.95,
       clarification_question_hi: null,
-      voice_response_hi: `${customerName} ke ${amt} rupaye jama darj ho gaye.`,
+      voiceFeedback: hinglishResp,
+      voice_response_hi: hinglishResp,
+      ttsText: `${hindiCust} के ${amt} रुपये जमा दर्ज हो गए हैं।`,
       actions: [
         {
           customer_name: customerName,
@@ -660,19 +727,25 @@ function parseBilingualLocally(
       intent: "CLARIFICATION_NEEDED",
       confidence: 0.4,
       clarification_question_hi: "Could not identify items or amount. Please repeat customer name and items clearly.",
+      voiceFeedback: "Samaan ya rashi samajh nahi aayi, kripya dobara bolein.",
       voice_response_hi: "Samaan ya rashi samajh nahi aayi, kripya dobara bolein.",
+      ttsText: "सामान या राशि समझ नहीं आई, कृपया दोबारा बोलें।",
       actions: [],
       query_answer_hi: null,
     };
   }
 
-  const voice_response_hi = `${customerName} ke ${totalAmount} rupaye udhaar darj ho gaye.`;
+  const hindiCust = toHindiCustomerName(customerName);
+  const voiceFeedback = `${customerName} ke ${totalAmount} rupaye udhaar darj ho gaye.`;
+  const ttsText = `${hindiCust} के ${totalAmount} रुपये उधार दर्ज हो गए हैं।`;
 
   return {
     intent: "TRANSACTION",
     confidence: 0.95,
     clarification_question_hi: null,
-    voice_response_hi,
+    voiceFeedback,
+    voice_response_hi: voiceFeedback,
+    ttsText,
     actions: [
       {
         customer_name: customerName,

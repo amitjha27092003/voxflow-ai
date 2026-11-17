@@ -62,6 +62,8 @@ export interface VoiceProcessResponse {
   confidence: number;
   clarification_question_hi: string | null;
   voice_response_hi: string;
+  voiceFeedback?: string; // Clean Roman Hinglish for on-screen UI toast
+  ttsText?: string; // Natural Devanagari Hindi script specifically for TTS audio engine
   actions: VoiceAction[];
   restock_items?: RestockItem[];
   query_answer_hi: string | null;
