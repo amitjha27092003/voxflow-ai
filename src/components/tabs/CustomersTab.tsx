@@ -2,7 +2,11 @@
 
 import React, { useState } from "react";
 import { Customer, Transaction } from "@/types";
-import { formatWhatsAppReminder, openWhatsAppLink } from "@/utils/whatsapp";
+import {
+  formatWhatsAppReminder,
+  formatKhataStatement,
+  openWhatsAppLink,
+} from "@/utils/whatsapp";
 import {
   Users,
   Search,
@@ -17,6 +21,8 @@ import {
   X,
   CreditCard,
   QrCode,
+  ShieldCheck,
+  FileText,
 } from "lucide-react";
 
 interface CustomersTabProps {
@@ -80,6 +86,19 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const handleSendReminder = (customer: Customer) => {
     const text = formatWhatsAppReminder(customer);
     openWhatsAppLink(customer.phone, text);
+  };
+
+  const handleShareStatement = (customer: Customer) => {
+    const custTxs = transactions.filter((t) => t.customerId === customer.id);
+    const text = formatKhataStatement(customer, custTxs);
+    openWhatsAppLink(customer.phone, text);
+  };
+
+  const getCustomerTrust = (balance: number) => {
+    if (balance === 0) return { score: 98, label: "Reliable", color: "emerald" };
+    if (balance <= 400) return { score: 92, label: "Reliable", color: "emerald" };
+    if (balance <= 900) return { score: 78, label: "Moderate", color: "amber" };
+    return { score: 64, label: "Follow-up Due", color: "rose" };
   };
 
   return (
@@ -150,6 +169,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             const hasDue = cust.balance > 0;
             const isExpanded = expandedCustomerId === cust.id;
             const customerTxs = transactions.filter((t) => t.customerId === cust.id);
+            const trust = getCustomerTrust(cust.balance);
 
             return (
               <div
@@ -163,7 +183,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                     className="flex items-center gap-3 cursor-pointer flex-1"
                   >
                     <div
-                      className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm shadow-xs shrink-0 ${
                         hasDue
                           ? "bg-rose-50 text-rose-600 border border-rose-200/60"
                           : "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
@@ -184,6 +204,21 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                         <Phone className="w-3 h-3 text-slate-400" />
                         {cust.phone}
                       </p>
+                      {/* AI Credit Trust Score Badge */}
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            trust.color === "emerald"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : trust.color === "amber"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-rose-50 text-rose-700 border border-rose-200"
+                          }`}
+                        >
+                          <ShieldCheck className="w-3 h-3" />
+                          Trust Score: {trust.score}/100 • {trust.label}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -202,27 +237,38 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                       </div>
                     </div>
 
-                    {/* WhatsApp Reminder Button */}
-                    {hasDue && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => onOpenUPIQR(cust.name, cust.balance)}
-                          title="Show Instant UPI QR Code"
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs active:scale-95 transition"
-                        >
-                          <QrCode className="w-3.5 h-3.5 text-slate-600" />
-                          <span className="hidden sm:inline">UPI QR</span>
-                        </button>
-                        <button
-                          onClick={() => handleSendReminder(cust)}
-                          title="Send WhatsApp Payment Reminder"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="hidden sm:inline">Send Reminder</span>
-                        </button>
-                      </div>
-                    )}
+                    {/* Action Buttons: Statement, UPI QR, WhatsApp Reminder */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleShareStatement(cust)}
+                        title="Share Complete Khata Statement on WhatsApp"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs active:scale-95 transition"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-slate-600" />
+                        <span className="hidden sm:inline">Statement</span>
+                      </button>
+
+                      {hasDue && (
+                        <>
+                          <button
+                            onClick={() => onOpenUPIQR(cust.name, cust.balance)}
+                            title="Show Instant UPI QR Code"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs active:scale-95 transition"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-slate-600" />
+                            <span className="hidden sm:inline">UPI QR</span>
+                          </button>
+                          <button
+                            onClick={() => handleSendReminder(cust)}
+                            title="Send WhatsApp Payment Reminder"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="hidden sm:inline">Reminder</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
 
                     <button
                       onClick={() => toggleExpand(cust.id)}

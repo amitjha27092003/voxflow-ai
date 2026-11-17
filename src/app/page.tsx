@@ -215,7 +215,88 @@ export default function Home() {
       return;
     }
 
-    // 4. Handle TRANSACTION Intent
+    // 4. Handle EXPENSE Intent (Voice Daily Expense Tracker)
+    if (response.intent === "EXPENSE") {
+      const exp = response.expense_details || {
+        title: "Store Overhead Expense",
+        amount: 100,
+        category: "General",
+      };
+
+      const newTx: Transaction = {
+        id: `tx-exp-${Date.now()}`,
+        customerId: "store-expense",
+        customerName: `Store Expense: ${exp.title}`,
+        customerPhone: "",
+        type: "EXPENSE",
+        items: [
+          {
+            name: exp.title,
+            qty: 1,
+            unit: "unit",
+            unit_price: exp.amount,
+            total: exp.amount,
+          },
+        ],
+        totalAmount: exp.amount,
+        timestamp: new Date().toISOString(),
+        rawVoiceTranscript: rawTranscript,
+        expenseCategory: exp.category,
+      };
+
+      setTransactions((prev) => [newTx, ...prev]);
+      setUndoToast(
+        `Recorded store expense: ₹${exp.amount.toLocaleString("en-IN")} for ${exp.title}. Net cashflow updated.`
+      );
+      setActiveInsight({
+        query: rawTranscript,
+        answer: response.query_answer_hi || `Recorded Expense: ₹${exp.amount} for ${exp.title}`,
+        data: { type: "SUMMARY" },
+      });
+      return;
+    }
+
+    // 5. Handle UPDATE_ITEM Intent (Catalog Price Updates & New Product Creation)
+    if (response.intent === "UPDATE_ITEM" && response.item_update) {
+      const upd = response.item_update;
+      let updatedInventory = [...inventory];
+
+      if (upd.action === "CREATE_ITEM") {
+        const newItem: InventoryItem = {
+          id: `inv-${Date.now()}`,
+          name: upd.name,
+          unitPrice: upd.unitPrice,
+          stock: upd.stock || 20,
+          unit: upd.unit || "pack",
+          category: upd.category || "General",
+        };
+        updatedInventory = [newItem, ...updatedInventory];
+        setUndoToast(
+          `Created new SKU: ${upd.name} at ₹${upd.unitPrice}/${upd.unit || "pack"} with 20 units stock.`
+        );
+      } else {
+        const match = findMatchingInventoryItem(upd.name);
+        if (match) {
+          updatedInventory = updatedInventory.map((item) =>
+            item.id === match.id ? { ...item, unitPrice: upd.unitPrice } : item
+          );
+          setUndoToast(`Updated price: ${match.name} to ₹${upd.unitPrice}/${match.unit}`);
+        } else {
+          setUndoToast(`Could not find product "${upd.name}" in catalog to update.`);
+        }
+      }
+
+      setInventory(updatedInventory);
+      setActiveInsight({
+        query: rawTranscript,
+        answer: response.query_answer_hi || `Catalog updated: ${upd.name} at ₹${upd.unitPrice}`,
+        data: { type: "INVENTORY" },
+      });
+      setActiveTab("inventory");
+      return;
+    }
+
+    // 6. Handle TRANSACTION Intent
     if (!response.actions || response.actions.length === 0) return;
 
     let updatedCustomers = [...customers];
@@ -243,17 +324,21 @@ export default function Home() {
 
       // Adjust Balance
       const isUdhaar = action.transaction_type === "UDHAAR";
+      const isSplit = action.transaction_type === "SPLIT";
       const amount = action.total_amount || 0;
 
-      if (isUdhaar) {
+      if (isSplit && action.split_details) {
+        // Only the unpaid portion increases customer balance
+        targetCustomer.balance += action.split_details.udhaar_amount;
+      } else if (isUdhaar) {
         targetCustomer.balance += amount;
-      } else {
+      } else if (action.transaction_type === "JAMA") {
         targetCustomer.balance = Math.max(0, targetCustomer.balance - amount);
       }
       targetCustomer.lastActivity = new Date().toISOString();
 
-      // Deduct Inventory for items sold via voice
-      if (isUdhaar && action.items && action.items.length > 0) {
+      // Deduct Inventory for items sold via voice (both UDHAAR and SPLIT)
+      if ((isUdhaar || isSplit) && action.items && action.items.length > 0) {
         action.items.forEach((item) => {
           const match = findMatchingInventoryItem(item.name);
           if (match) {
@@ -277,6 +362,14 @@ export default function Home() {
         totalAmount: amount,
         timestamp: new Date().toISOString(),
         rawVoiceTranscript: rawTranscript,
+        splitDetails:
+          isSplit && action.split_details
+            ? {
+                paidAmount: action.split_details.paid_amount,
+                udhaarAmount: action.split_details.udhaar_amount,
+                paymentMode: action.split_details.payment_mode || "UPI",
+              }
+            : undefined,
       };
 
       newTransactions.push(newTx);
@@ -331,11 +424,19 @@ export default function Home() {
   );
 
   const todaySales = todayTransactions
-    .filter((t) => t.type === "UDHAAR")
+    .filter((t) => t.type === "UDHAAR" || t.type === "SPLIT")
     .reduce((acc, t) => acc + t.totalAmount, 0);
 
-  const todayJama = todayTransactions
-    .filter((t) => t.type === "JAMA")
+  const todayJama =
+    todayTransactions
+      .filter((t) => t.type === "JAMA")
+      .reduce((acc, t) => acc + t.totalAmount, 0) +
+    todayTransactions
+      .filter((t) => t.type === "SPLIT" && t.splitDetails)
+      .reduce((acc, t) => acc + (t.splitDetails?.paidAmount || 0), 0);
+
+  const todayExpenses = todayTransactions
+    .filter((t) => t.type === "EXPENSE")
     .reduce((acc, t) => acc + t.totalAmount, 0);
 
   const totalUdhaar = customers.reduce(
@@ -357,6 +458,7 @@ export default function Home() {
         totalUdhaar={totalUdhaar}
         todayJama={todayJama}
         lowStockCount={lowStockCount}
+        todayExpenses={todayExpenses}
         onFilterLowStock={() => {
           setFilterLowStockInitial(true);
           setActiveTab("inventory");

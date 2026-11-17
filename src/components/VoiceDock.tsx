@@ -28,6 +28,9 @@ interface VoiceDockProps {
 
 const DEMO_PILLS = [
   "Sharma ji ke 2 kilo aata aur 1 Amul butter udhaar likh de",
+  "Rahul ka 500 ka bill bana, 300 UPI se aur 200 udhaar likh de",
+  "Bijli ka bill 1200 rupaye kharch likh de",
+  "Cheeni ka rate 46 rupaye kilo kar do",
   "Aadha kilo cheeni aur dedh kilo toor dal udhaar likh do",
   "20 kilo aata aur 10 packet Amul butter stock mein add kar do",
   "Rahul ke 500 rupaye jama kar le",
@@ -167,12 +170,14 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
         speakHindi(spokenText);
       }
 
-      // Propagate state update if intent is TRANSACTION, UNDO_LAST, QUERY, or RESTOCK
+      // Propagate state update if intent is TRANSACTION, UNDO_LAST, QUERY, RESTOCK, EXPENSE, or UPDATE_ITEM
       if (
         (data.intent === "TRANSACTION" && data.actions && data.actions.length > 0) ||
         data.intent === "UNDO_LAST" ||
         data.intent === "QUERY" ||
-        data.intent === "RESTOCK"
+        data.intent === "RESTOCK" ||
+        data.intent === "EXPENSE" ||
+        data.intent === "UPDATE_ITEM"
       ) {
         onVoiceSuccess(data, transcriptText);
       }

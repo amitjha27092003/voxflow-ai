@@ -2,7 +2,11 @@
 
 import React, { useState } from "react";
 import { InventoryItem } from "@/types";
-import { formatDistributorOrder, openWhatsAppLink } from "@/utils/whatsapp";
+import {
+  formatDistributorOrder,
+  formatStoreRateList,
+  openWhatsAppLink,
+} from "@/utils/whatsapp";
 import {
   Package,
   Plus,
@@ -13,6 +17,7 @@ import {
   Tag,
   X,
   MessageCircle,
+  Share2,
 } from "lucide-react";
 
 interface InventoryTabProps {
@@ -45,6 +50,11 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
     if (lowStockItems.length === 0) return;
     const msg = formatDistributorOrder(lowStockItems);
     openWhatsAppLink("919876543299", msg);
+  };
+
+  const handleShareRateListWhatsApp = () => {
+    const msg = formatStoreRateList(inventory);
+    openWhatsAppLink("919876543210", msg);
   };
 
   const filteredInventory = inventory.filter((item) => {
@@ -95,8 +105,17 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
           />
         </div>
 
-        {/* Filter Pills & Add Item */}
-        <div className="flex items-center gap-2">
+        {/* Filter Pills, Share Rate-List & Add Item */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleShareRateListWhatsApp}
+            title="Broadcast Store Price List to Customers on WhatsApp"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-2xs transition active:scale-95"
+          >
+            <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">Share Rate-List</span>
+          </button>
+
           <button
             onClick={() => setOnlyLowStock(!onlyLowStock)}
             className={`px-3 py-2 text-xs font-semibold rounded-xl border transition flex items-center gap-1.5 ${

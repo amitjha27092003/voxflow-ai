@@ -87,7 +87,18 @@ INTENTS:
    - Identify matched inventory items from catalog and incoming quantities.
    - Return intent: "RESTOCK", actions: [], restock_items: [ { "name": string, "qty": number, "unit": string } ], voiceFeedback: "Stock safaltapoorvak update ho gaya hai.", voice_response_hi: "Stock safaltapoorvak update ho gaya hai.", ttsText: "स्टॉक में सामान सफलतापूर्वक जोड़ दिया गया है।", query_answer_hi: "Inventory stock updated successfully."
 
-3. "QUERY":
+3. "EXPENSE":
+   - Triggered when the merchant records daily store expenses, bills, or petty cash.
+   - Phrases: "Bijli ka bill 1200 rupaye kharch likh de", "Chai pani 80 rupaye kharcha", "Dukan ka rent 5000 rupaye kharcha", "100 rupaye dukan safai kharch".
+   - Return intent: "EXPENSE", expense_details: { "title": string, "amount": number, "category": string }, actions: [ { "customer_name": "Store Expense", "transaction_type": "EXPENSE", "items": [{ "name": string, "qty": 1, "unit": "unit", "unit_price": number, "total": number }], "total_amount": number } ], voiceFeedback: "Bijli bill ke 1200 rupaye kharch darj ho gaye.", ttsText: "बिजली बिल के 1200 रुपये खर्च दर्ज हो गए हैं।"
+
+4. "UPDATE_ITEM":
+   - Triggered when the merchant changes an item price or adds a new product to the catalog.
+   - Price updates: "Cheeni ka rate 46 rupaye kilo kar do", "Aata 48 rupaye kar do", "चीनी का रेट 46 रुपये कर दो".
+   - New items: "Naya item Raju Namkeen 20 rupaye packet add kar do", "नया आइटम पारले जी 10 रुपये जोड़ो".
+   - Return intent: "UPDATE_ITEM", item_update: { "action": "UPDATE_PRICE" | "CREATE_ITEM", "name": string, "unitPrice": number, "unit": string, "stock": number, "category": string }, voiceFeedback: "Cheeni ka rate 46 rupaye per kg update ho gaya hai.", ttsText: "चीनी का रेट 46 रुपये प्रति किलो अपडेट हो गया है।"
+
+5. "QUERY":
    - Triggered for analytical or ledger questions:
      * "Sabse zyada udhaar kiska baaki hai?" / "highest debtor": identify the customer with the highest positive balance.
      * "Kaun sa samaan kam hai?" / "low stock": list inventory items where stock <= 5 units.
@@ -96,8 +107,13 @@ INTENTS:
      * Specific customer balance questions (e.g., "Sharma ji ka kitna baaki hai?").
    - Set intent: "QUERY", actions: [], query_answer_hi: detailed English summary, voiceFeedback: spoken Roman Hinglish answer under 15 words, ttsText: natural Devanagari Hindi speech text.
 
-4. "TRANSACTION":
-   - Record UDHAAR (credit given) or JAMA (payment received).
+6. "TRANSACTION":
+   - Record UDHAAR (credit given), JAMA (payment received), or SPLIT (mixed payment & credit).
+   - SPLIT PAYMENT SUPPORT:
+     * Phrases: "Rahul ka 500 ka bill bana, 300 UPI se aur 200 udhaar likh de", "Ankit ke 2 kilo cheeni me se 50 jama aur baaki udhaar".
+     * Set transaction_type: "SPLIT", total_amount: 500, split_details: { paid_amount: 300, udhaar_amount: 200, payment_mode: "UPI" }.
+     * voiceFeedback: "Rahul ke 300 jama aur 200 udhaar darj ho gaye."
+     * ttsText: "राहुल के 300 रुपये जमा और 200 रुपये उधार दर्ज हो गए हैं।"
    - Convert Devanagari customer names to clean English ("अंकित" -> "Ankit").
    - Map items accurately to inventory names:
      * चीनी / cheeni / sugar -> "Cheeni / Sugar" (₹44/kg)
@@ -122,7 +138,7 @@ INTENTS:
      * voiceFeedback: clean Roman Hinglish e.g. "Sharma Ji ke 146 rupaye udhaar darj ho gaye."
      * ttsText: natural Devanagari Hindi script for speech synthesis e.g. "शर्मा जी के 146 रुपये उधार दर्ज हो गए हैं।"
 
-5. "CLARIFICATION_NEEDED":
+7. "CLARIFICATION_NEEDED":
    - If audio is unclear or neither items nor amounts can be determined.
 
 TTS & VOICE SPEECH RULES:
@@ -132,7 +148,7 @@ TTS & VOICE SPEECH RULES:
 
 Output JSON Schema:
 {
-  "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK",
+  "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK" | "EXPENSE" | "UPDATE_ITEM",
   "confidence": number,
   "clarification_question_hi": string | null,
   "voice_response_hi": string,
@@ -141,7 +157,7 @@ Output JSON Schema:
   "actions": [
     {
       "customer_name": string,
-      "transaction_type": "UDHAAR" | "JAMA",
+      "transaction_type": "UDHAAR" | "JAMA" | "SPLIT" | "EXPENSE",
       "items": [
         {
           "name": string,
@@ -151,7 +167,12 @@ Output JSON Schema:
           "total": number
         }
       ],
-      "total_amount": number
+      "total_amount": number,
+      "split_details": {
+        "paid_amount": number,
+        "udhaar_amount": number,
+        "payment_mode": string
+      }
     }
   ],
   "restock_items": [
@@ -161,6 +182,19 @@ Output JSON Schema:
       "unit": string
     }
   ],
+  "expense_details": {
+    "title": string,
+    "amount": number,
+    "category": string
+  },
+  "item_update": {
+    "action": "UPDATE_PRICE" | "CREATE_ITEM",
+    "name": string,
+    "unitPrice": number,
+    "unit": string,
+    "stock": number,
+    "category": string
+  },
   "query_answer_hi": string | null
 }
 `;
@@ -401,6 +435,155 @@ function parseBilingualLocally(
     }
   }
 
+  // 3. EXPENSE INTENT (Daily Store Expense Tracker)
+  const isExpense =
+    lower.includes("kharch") ||
+    lower.includes("kharcha") ||
+    lower.includes("bijli ka bill") ||
+    lower.includes("bijli bill") ||
+    lower.includes("chai pani") ||
+    lower.includes("chai nashta") ||
+    lower.includes("rent") ||
+    text.includes("खर्च") ||
+    text.includes("खर्चा") ||
+    text.includes("बिजली बिल") ||
+    text.includes("किराया");
+
+  if (isExpense) {
+    const amtMatch = text.match(/\b(\d+)\b/);
+    const amt = amtMatch ? parseInt(amtMatch[1], 10) : 120;
+    let title = "Store Expense";
+    let category = "General";
+
+    if (lower.includes("bijli") || text.includes("बिजली")) {
+      title = "Electricity Bill";
+      category = "Utilities";
+    } else if (lower.includes("chai") || text.includes("चाय")) {
+      title = "Tea & Refreshments";
+      category = "Refreshments";
+    } else if (lower.includes("rent") || text.includes("किराया")) {
+      title = "Shop Rent";
+      category = "Rent";
+    } else if (lower.includes("safai") || text.includes("सफाई")) {
+      title = "Shop Cleaning";
+      category = "Maintenance";
+    }
+
+    const hindiTitle =
+      title === "Electricity Bill"
+        ? "बिजली बिल"
+        : title === "Tea & Refreshments"
+        ? "चाय नाश्ता"
+        : title === "Shop Rent"
+        ? "दुकान किराया"
+        : "दुकान खर्च";
+
+    const hinglishResp = `${title} ke ${amt} rupaye kharch darj ho gaye.`;
+    return {
+      intent: "EXPENSE",
+      confidence: 0.98,
+      clarification_question_hi: null,
+      voiceFeedback: hinglishResp,
+      voice_response_hi: hinglishResp,
+      ttsText: `${hindiTitle} के ${amt} रुपये खर्च दर्ज हो गए हैं।`,
+      expense_details: { title, amount: amt, category },
+      actions: [
+        {
+          customer_name: `Store Expense: ${title}`,
+          transaction_type: "EXPENSE",
+          items: [{ name: title, qty: 1, unit: "unit", unit_price: amt, total: amt }],
+          total_amount: amt,
+        },
+      ],
+      query_answer_hi: `Recorded store expense: ₹${amt} for ${title} (${category}).`,
+    };
+  }
+
+  // 4. UPDATE_ITEM INTENT (Catalog Price Update & New SKU Creation)
+  const isRateChange =
+    (lower.includes("rate") || lower.includes("bhav") || text.includes("रेट") || text.includes("भाव")) &&
+    (lower.includes("kar do") || lower.includes("karo") || lower.includes("badal") || text.includes("कर दो"));
+
+  const isNewItem =
+    lower.includes("naya item") ||
+    lower.includes("new item") ||
+    lower.includes("item add") ||
+    text.includes("नया आइटम") ||
+    text.includes("आइटम जोड़ो");
+
+  if (isRateChange || isNewItem) {
+    const amtMatch = text.match(/\b(\d+)\b/);
+    const rate = amtMatch ? parseInt(amtMatch[1], 10) : 46;
+
+    if (isNewItem) {
+      let itemName = "Raju Namkeen";
+      if (lower.includes("raju") || text.includes("राजू")) itemName = "Raju Namkeen";
+      else if (lower.includes("parle") || text.includes("पारले")) itemName = "Parle-G Biscuit";
+      else if (lower.includes("surf") || text.includes("सर्फ")) itemName = "Surf Excel";
+
+      return {
+        intent: "UPDATE_ITEM",
+        confidence: 0.95,
+        clarification_question_hi: null,
+        voiceFeedback: `${itemName} ${rate} rupaye packet inventory mein add ho gaya hai.`,
+        voice_response_hi: `${itemName} ${rate} rupaye packet inventory mein add ho gaya hai.`,
+        ttsText: `${itemName} ${rate} रुपये प्रति पैकेट इन्वेंट्री में जोड़ दिया गया है।`,
+        actions: [],
+        item_update: {
+          action: "CREATE_ITEM",
+          name: itemName,
+          unitPrice: rate,
+          unit: "pack",
+          stock: 24,
+          category: "Packaged Foods",
+        },
+        query_answer_hi: `Created new catalog SKU "${itemName}" at ₹${rate}/pack with 24 units initial stock.`,
+      };
+    } else {
+      let itemName = "Cheeni / Sugar";
+      let unit = "kg";
+      if (lower.includes("aata") || text.includes("आटा")) {
+        itemName = "Aashirvaad Atta";
+        unit = "kg";
+      } else if (lower.includes("tel") || text.includes("तेल")) {
+        itemName = "Fortune Sunflower Oil";
+        unit = "L";
+      } else if (lower.includes("butter") || text.includes("बटर")) {
+        itemName = "Amul Butter";
+        unit = "pack";
+      } else if (lower.includes("dal") || text.includes("दाल")) {
+        itemName = "Toor Dal";
+        unit = "kg";
+      }
+
+      const hindiItemName =
+        itemName === "Cheeni / Sugar"
+          ? "चीनी"
+          : itemName === "Aashirvaad Atta"
+          ? "आटा"
+          : itemName === "Fortune Sunflower Oil"
+          ? "तेल"
+          : itemName;
+
+      return {
+        intent: "UPDATE_ITEM",
+        confidence: 0.95,
+        clarification_question_hi: null,
+        voiceFeedback: `${itemName} ka rate ${rate} rupaye per ${unit} update ho gaya hai.`,
+        voice_response_hi: `${itemName} ka rate ${rate} rupaye per ${unit} update ho gaya hai.`,
+        ttsText: `${hindiItemName} का रेट ${rate} रुपये प्रति ${unit} अपडेट हो गया है।`,
+        actions: [],
+        item_update: {
+          action: "UPDATE_PRICE",
+          name: itemName,
+          unitPrice: rate,
+          unit,
+        },
+        query_answer_hi: `Catalog price for ${itemName} updated to ₹${rate}/${unit}.`,
+      };
+    }
+  }
+
   // 2. CONVERSATIONAL BUSINESS ANALYTICS (QUERY INTENT)
   // 2A. Highest Debtor ("Sabse zyada udhaar kiska baaki hai?")
   if (
@@ -613,6 +796,56 @@ function parseBilingualLocally(
     }
   }
 
+  const isSplit =
+    (lower.includes("udhaar") || lower.includes("udhar") || text.includes("उधार") || lower.includes("baaki") || text.includes("बाकी")) &&
+    (lower.includes("jama") || lower.includes("upi") || lower.includes("cash") || text.includes("जमा") || text.includes("चुकाए") || text.includes("दिए"));
+
+  // Check pure bill split payment without grocery items (e.g. "Rahul ka 500 ka bill bana, 300 UPI se aur 200 udhaar likh de")
+  if (isSplit && !text.includes("चीनी") && !text.includes("बटर") && !text.includes("आटा") && !text.includes("तेल") && !lower.includes("cheeni") && !lower.includes("aata")) {
+    const nums = (text.match(/\d+/g) || []).map((n) => parseInt(n, 10));
+    let paidAmt = 300;
+    let udhaarAmt = 200;
+    let totalBill = 500;
+
+    if (nums.length >= 3) {
+      totalBill = nums[0];
+      paidAmt = nums[1];
+      udhaarAmt = nums[2];
+    } else if (nums.length === 2) {
+      paidAmt = nums[0];
+      udhaarAmt = nums[1];
+      totalBill = paidAmt + udhaarAmt;
+    }
+
+    const hindiCust = toHindiCustomerName(customerName);
+    const paymentMode = lower.includes("upi") || text.includes("यूपीआई") ? "UPI" : "Cash";
+    const hinglishResp = `${customerName} ke ${paidAmt} jama aur ${udhaarAmt} udhaar darj ho gaye.`;
+    const devanagariResp = `${hindiCust} के ${paidAmt} रुपये जमा और ${udhaarAmt} रुपये उधार दर्ज हो गए हैं।`;
+
+    return {
+      intent: "TRANSACTION",
+      confidence: 0.98,
+      clarification_question_hi: null,
+      voiceFeedback: hinglishResp,
+      voice_response_hi: hinglishResp,
+      ttsText: devanagariResp,
+      actions: [
+        {
+          customer_name: customerName,
+          transaction_type: "SPLIT",
+          items: [],
+          total_amount: totalBill,
+          split_details: {
+            paid_amount: paidAmt,
+            udhaar_amount: udhaarAmt,
+            payment_mode: paymentMode,
+          },
+        },
+      ],
+      query_answer_hi: `Split Payment for ${customerName}: ₹${paidAmt} paid via ${paymentMode} + ₹${udhaarAmt} pending credit (Total: ₹${totalBill}).`,
+    };
+  }
+
   const isJama =
     text.includes("जमा") ||
     text.includes("चुकाए") ||
@@ -736,6 +969,43 @@ function parseBilingualLocally(
   }
 
   const hindiCust = toHindiCustomerName(customerName);
+
+  // If itemized split payment is requested (e.g. "Ankit ke 2 kilo cheeni me se 50 jama aur baaki udhaar")
+  if (isSplit) {
+    const paidMatch =
+      text.match(/(\d+)\s*(?:रुपये|rupaye|rs|₹)?\s*(?:upi|cash|jama|जमा|चुकाए|दिए)/i) ||
+      text.match(/(?:upi|cash|jama|जमा)\s*(?:se|me)?\s*(\d+)/i) ||
+      text.match(/me se\s*(\d+)/i);
+    const paidAmt = paidMatch ? parseInt(paidMatch[1], 10) : 50;
+    const udhaarAmt = Math.max(0, totalAmount - paidAmt);
+    const paymentMode = lower.includes("upi") || text.includes("यूपीआई") ? "UPI" : "Cash";
+    const hinglishResp = `${customerName} ke ${paidAmt} jama aur ${udhaarAmt} udhaar darj ho gaye.`;
+    const devanagariResp = `${hindiCust} के ${paidAmt} रुपये जमा और ${udhaarAmt} रुपये उधार दर्ज हो गए हैं।`;
+
+    return {
+      intent: "TRANSACTION",
+      confidence: 0.98,
+      clarification_question_hi: null,
+      voiceFeedback: hinglishResp,
+      voice_response_hi: hinglishResp,
+      ttsText: devanagariResp,
+      actions: [
+        {
+          customer_name: customerName,
+          transaction_type: "SPLIT",
+          items,
+          total_amount: totalAmount,
+          split_details: {
+            paid_amount: paidAmt,
+            udhaar_amount: udhaarAmt,
+            payment_mode: paymentMode,
+          },
+        },
+      ],
+      query_answer_hi: `Itemized Split Payment for ${customerName}: ₹${paidAmt} settled + ₹${udhaarAmt} credit (Total: ₹${totalAmount}).`,
+    };
+  }
+
   const voiceFeedback = `${customerName} ke ${totalAmount} rupaye udhaar darj ho gaye.`;
   const ttsText = `${hindiCust} के ${totalAmount} रुपये उधार दर्ज हो गए हैं।`;
 

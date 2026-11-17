@@ -14,6 +14,8 @@ import {
   Search,
   MessageCircle,
   QrCode,
+  Receipt,
+  Layers,
 } from "lucide-react";
 
 interface LiveFeedTabProps {
@@ -29,7 +31,7 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
   onSelectCustomer,
   onOpenUPIQR,
 }) => {
-  const [filterType, setFilterType] = useState<"ALL" | "UDHAAR" | "JAMA">("ALL");
+  const [filterType, setFilterType] = useState<"ALL" | "UDHAAR" | "JAMA" | "EXPENSE">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredTransactions = transactions
@@ -102,6 +104,17 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             Payment (Jama)
           </button>
+          <button
+            onClick={() => setFilterType("EXPENSE")}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 ${
+              filterType === "EXPENSE"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-amber-50 text-amber-700 hover:bg-amber-100/80 border border-amber-200/50"
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            Expenses
+          </button>
         </div>
       </div>
 
@@ -118,6 +131,9 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
         <div className="space-y-3">
           {filteredTransactions.map((tx) => {
             const isUdhaar = tx.type === "UDHAAR";
+            const isExpense = tx.type === "EXPENSE";
+            const isSplit = tx.type === "SPLIT";
+
             const dateObj = new Date(tx.timestamp);
             const timeFormatted = dateObj.toLocaleTimeString("en-IN", {
               hour: "2-digit",
@@ -138,24 +154,38 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        isUdhaar
+                        isExpense
+                          ? "bg-amber-50 text-amber-600 border border-amber-200/60"
+                          : isSplit
+                          ? "bg-indigo-50 text-indigo-600 border border-indigo-200/60"
+                          : isUdhaar
                           ? "bg-rose-50 text-rose-600 border border-rose-200/60"
                           : "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
                       }`}
                     >
-                      {isUdhaar ? (
+                      {isExpense ? (
+                        <Receipt className="w-4 h-4" />
+                      ) : isSplit ? (
+                        <Layers className="w-4 h-4" />
+                      ) : isUdhaar ? (
                         <ArrowUpRight className="w-4 h-4" />
                       ) : (
                         <ArrowDownLeft className="w-4 h-4" />
                       )}
                     </div>
                     <div>
-                      <button
-                        onClick={() => onSelectCustomer(tx.customerId)}
-                        className="text-sm sm:text-base font-bold text-slate-900 hover:text-slate-700 transition text-left flex items-center gap-1.5"
-                      >
-                        {tx.customerName}
-                      </button>
+                      {isExpense ? (
+                        <span className="text-sm sm:text-base font-bold text-slate-900">
+                          {tx.customerName}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => onSelectCustomer(tx.customerId)}
+                          className="text-sm sm:text-base font-bold text-slate-900 hover:text-slate-700 transition text-left flex items-center gap-1.5"
+                        >
+                          {tx.customerName}
+                        </button>
+                      )}
                       <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3 text-slate-400" />
@@ -174,22 +204,53 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
                   <div className="text-right">
                     <div
                       className={`text-base sm:text-lg font-extrabold tracking-tight font-sans ${
-                        isUdhaar ? "text-rose-600" : "text-emerald-600"
+                        isExpense
+                          ? "text-amber-600"
+                          : isSplit
+                          ? "text-indigo-600"
+                          : isUdhaar
+                          ? "text-rose-600"
+                          : "text-emerald-600"
                       }`}
                     >
-                      {isUdhaar ? "+" : "-"}₹{tx.totalAmount.toLocaleString("en-IN")}
+                      {isExpense ? "-" : isSplit ? "₹" : isUdhaar ? "+" : "-"}
+                      {isSplit ? "" : "₹"}
+                      {tx.totalAmount.toLocaleString("en-IN")}
                     </div>
                     <span
                       className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide mt-1 uppercase ${
-                        isUdhaar
+                        isExpense
+                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          : isSplit
+                          ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                          : isUdhaar
                           ? "bg-rose-50 text-rose-700 border border-rose-200"
                           : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       }`}
                     >
-                      {isUdhaar ? "Credit" : "Payment"}
+                      {isExpense
+                        ? "Expense"
+                        : isSplit
+                        ? "Split Pay"
+                        : isUdhaar
+                        ? "Credit"
+                        : "Payment"}
                     </span>
                   </div>
                 </div>
+
+                {/* Split details chip if applicable */}
+                {isSplit && tx.splitDetails && (
+                  <div className="mt-3 flex items-center justify-between bg-indigo-50/70 border border-indigo-100 rounded-xl px-3 py-1.5 text-xs text-indigo-900 font-medium">
+                    <span>
+                      Settled: <strong>₹{tx.splitDetails.paidAmount}</strong> via{" "}
+                      {tx.splitDetails.paymentMode || "UPI"}
+                    </span>
+                    <span className="text-rose-600 font-bold">
+                      Pending Credit: +₹{tx.splitDetails.udhaarAmount}
+                    </span>
+                  </div>
+                )}
 
                 {/* Spoken voice transcript chip */}
                 {tx.rawVoiceTranscript && (
@@ -229,29 +290,38 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
                   </div>
                 )}
 
-                {/* Actions row: WhatsApp Send Receipt */}
-                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs text-slate-400">
-                    Phone: {tx.customerPhone || "Not configured"}
-                  </span>
+                {/* Actions row: WhatsApp Send Receipt / Expense indicator */}
+                {!isExpense && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs text-slate-400">
+                      Phone: {tx.customerPhone || "Not configured"}
+                    </span>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onOpenUPIQR(tx.customerName, tx.totalAmount)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs active:scale-95 transition"
-                    >
-                      <QrCode className="w-3.5 h-3.5 text-slate-600" />
-                      <span>UPI QR</span>
-                    </button>
-                    <button
-                      onClick={() => handleWhatsAppParchi(tx)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                      Send Receipt
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          onOpenUPIQR(
+                            tx.customerName,
+                            isSplit && tx.splitDetails
+                              ? tx.splitDetails.udhaarAmount
+                              : tx.totalAmount
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs active:scale-95 transition"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-slate-600" />
+                        <span>UPI QR</span>
+                      </button>
+                      <button
+                        onClick={() => handleWhatsAppParchi(tx)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 shadow-xs active:scale-95 transition"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        Send Receipt
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           })}

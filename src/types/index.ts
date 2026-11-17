@@ -29,11 +29,17 @@ export interface Transaction {
   customerId: string;
   customerName: string;
   customerPhone: string;
-  type: "UDHAAR" | "JAMA";
+  type: "UDHAAR" | "JAMA" | "EXPENSE" | "SPLIT";
   items: LedgerItem[];
   totalAmount: number;
   timestamp: string; // ISO string
   rawVoiceTranscript?: string;
+  splitDetails?: {
+    paidAmount: number;
+    udhaarAmount: number;
+    paymentMode?: string;
+  };
+  expenseCategory?: string;
 }
 
 export interface VoiceActionItem {
@@ -46,9 +52,14 @@ export interface VoiceActionItem {
 
 export interface VoiceAction {
   customer_name: string;
-  transaction_type: "UDHAAR" | "JAMA";
+  transaction_type: "UDHAAR" | "JAMA" | "EXPENSE" | "SPLIT";
   items: VoiceActionItem[];
   total_amount: number;
+  split_details?: {
+    paid_amount: number;
+    udhaar_amount: number;
+    payment_mode?: string;
+  };
 }
 
 export interface RestockItem {
@@ -57,8 +68,23 @@ export interface RestockItem {
   unit: string;
 }
 
+export interface ItemUpdateDetails {
+  action: "UPDATE_PRICE" | "CREATE_ITEM";
+  name: string;
+  unitPrice: number;
+  unit?: string;
+  stock?: number;
+  category?: string;
+}
+
+export interface ExpenseDetails {
+  title: string;
+  amount: number;
+  category?: string;
+}
+
 export interface VoiceProcessResponse {
-  intent: "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK";
+  intent: "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK" | "EXPENSE" | "UPDATE_ITEM";
   confidence: number;
   clarification_question_hi: string | null;
   voice_response_hi: string;
@@ -66,6 +92,8 @@ export interface VoiceProcessResponse {
   ttsText?: string; // Natural Devanagari Hindi script specifically for TTS audio engine
   actions: VoiceAction[];
   restock_items?: RestockItem[];
+  expense_details?: ExpenseDetails;
+  item_update?: ItemUpdateDetails;
   query_answer_hi: string | null;
   insight_data?: {
     type?: "DEBTOR" | "INVENTORY" | "SUMMARY";

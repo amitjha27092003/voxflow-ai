@@ -8,6 +8,7 @@ interface KPICardsProps {
   totalUdhaar: number;
   todayJama: number;
   lowStockCount: number;
+  todayExpenses?: number;
   onFilterLowStock?: () => void;
 }
 
@@ -16,11 +17,14 @@ export const KPICards: React.FC<KPICardsProps> = ({
   totalUdhaar,
   todayJama,
   lowStockCount,
+  todayExpenses = 0,
   onFilterLowStock,
 }) => {
+  const netProfit = Math.max(0, todaySales - todayExpenses);
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 my-4 max-w-6xl mx-auto px-4 sm:px-6">
-      {/* 1. Today's Revenue */}
+      {/* 1. Today's Revenue & Net Cashflow */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-center justify-between text-slate-500 mb-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -33,9 +37,16 @@ export const KPICards: React.FC<KPICardsProps> = ({
         <div className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight font-sans">
           ₹{todaySales.toLocaleString("en-IN")}
         </div>
-        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          Includes real-time voice orders
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-1 text-[11px] font-medium">
+          <div className="flex items-center gap-1.5 text-emerald-600">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>Net Profit: ₹{netProfit.toLocaleString("en-IN")}</span>
+          </div>
+          {todayExpenses > 0 && (
+            <span className="text-amber-700 bg-amber-50 border border-amber-200/70 px-1.5 py-0.2 rounded font-semibold text-[10px]">
+              -₹{todayExpenses.toLocaleString("en-IN")} Exp
+            </span>
+          )}
         </div>
       </div>
 
