@@ -56,8 +56,9 @@ INTENTS:
 2. "RESTOCK": add stock ("20 kilo aata add kar do"). restock_items: [{ name, qty, unit }].
 3. "EXPENSE": shop expense ("Bijli bill 1200 kharcha"). expense_details: { title, amount, category }.
 4. "UPDATE_ITEM": price update/new SKU ("Cheeni rate 46 kar do"). item_update: { action, name, unitPrice, unit, stock, category }.
-5. "QUERY": analytics questions ("Sabse zyada udhaar kiska hai?", "Kaun sa samaan kam hai?", "Aaj ka hisaab").
-6. "TRANSACTION":
+5. "UPDATE_STORE": update store name, address, timings, or UPI ID ("Meri dukaan ka naam Verma General Store aur address Noida Sector 87 kar do", "Store timing subah 8 se raat 10 baje kar do", "UPI ID vermastore@upi set kar do"). store_update: { storeName, ownerName, address, timings, upiId, phone }.
+6. "QUERY": analytics questions ("Sabse zyada udhaar kiska hai?", "Kaun sa samaan kam hai?", "Aaj ka hisaab").
+7. "TRANSACTION":
    - UDHAAR (credit), JAMA (cash/UPI payment), or SPLIT (mixed payment).
    - SPLIT: ("Rahul ka 500 bill, 300 UPI aur 200 udhaar"). split_details: { paid_amount, udhaar_amount, payment_mode }.
    - Fractional units: paav=0.25, aadha=0.5, paune=0.75, sawa=1.25, dedh=1.5, dhai=2.5, darjan=12.
@@ -70,7 +71,7 @@ OUTPUT FORMAT:
 
 JSON Schema:
 {
-  "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK" | "EXPENSE" | "UPDATE_ITEM",
+  "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK" | "EXPENSE" | "UPDATE_ITEM" | "UPDATE_STORE",
   "confidence": number,
   "clarification_question_hi": string | null,
   "voice_response_hi": string,
@@ -88,6 +89,7 @@ JSON Schema:
   "restock_items": [{ "name": string, "qty": number, "unit": string }],
   "expense_details": { "title": string, "amount": number, "category": string },
   "item_update": { "action": "UPDATE_PRICE" | "CREATE_ITEM", "name": string, "unitPrice": number, "unit": string, "stock": number, "category": string },
+  "store_update": { "storeName": string, "ownerName": string, "address": string, "timings": string, "upiId": string, "phone": string },
   "query_answer_hi": string | null
 }
 `;
@@ -205,6 +207,69 @@ function parseBilingualLocally(
       ttsText: "पिछली एंट्री कैंसिल कर दी गई है।",
       actions: [],
       query_answer_hi: "The most recent transaction has been cancelled and reversed.",
+    };
+  }
+
+  // 1.5 UPDATE_STORE INTENT (Store name, address, timings, UPI)
+  const isStoreUpdate =
+    lower.includes("dukaan") ||
+    lower.includes("dukan") ||
+    lower.includes("store name") ||
+    lower.includes("store timing") ||
+    lower.includes("upi id") ||
+    text.includes("दुकान") ||
+    text.includes("स्टोर") ||
+    text.includes("यूपीआई");
+
+  if (isStoreUpdate && (lower.includes("naam") || lower.includes("name") || lower.includes("address") || lower.includes("timing") || lower.includes("upi") || text.includes("नाम") || text.includes("पता") || text.includes("टाइमिंग"))) {
+    let storeName: string | undefined;
+    let address: string | undefined;
+    let upiId: string | undefined;
+    let timings: string | undefined;
+
+    // Detect store name e.g. "Verma General Store"
+    const nameMatch = text.match(/(?:dukaan|dukan|store)\s*(?:ka\s*naam)?\s*([A-Za-z0-9\s]+?)(?:\s*aur|\s*address|\s*rakh|\s*kar|\s*set|$)/i);
+    if (nameMatch && nameMatch[1].trim()) {
+      storeName = nameMatch[1].trim();
+    }
+
+    // Detect address e.g. "Noida Sector 87"
+    const addrMatch = text.match(/address\s*([A-Za-z0-9\s,]+?)(?:\s*kar|\s*set|\s*rakh|$)/i);
+    if (addrMatch && addrMatch[1].trim()) {
+      address = addrMatch[1].trim();
+    }
+
+    // Detect UPI ID e.g. "vermastore@upi"
+    const upiMatch = text.match(/([a-zA-Z0-9.\-_]{2,49}@[a-zA-Z]{2,})/);
+    if (upiMatch && upiMatch[1]) {
+      upiId = upiMatch[1].trim();
+    }
+
+    // Detect timings
+    if (lower.includes("timing") || text.includes("टाइमिंग")) {
+      timings = "8:00 AM – 10:00 PM";
+      const timeMatch = text.match(/(\d+\s*(?:se|to|-)\s*\d+)/i);
+      if (timeMatch) timings = timeMatch[1];
+    }
+
+    const feedback = `${storeName || "Store profile"} details safaltapoorvak update ho gayi hain.`;
+    const tts = `स्टोर प्रोफ़ाइल डिटेल्स सफलतापूर्वक अपडेट हो गई हैं।`;
+
+    return {
+      intent: "UPDATE_STORE",
+      confidence: 0.95,
+      clarification_question_hi: null,
+      voiceFeedback: feedback,
+      voice_response_hi: feedback,
+      ttsText: tts,
+      actions: [],
+      store_update: {
+        storeName,
+        address,
+        upiId,
+        timings,
+      },
+      query_answer_hi: `Store Profile updated: ${JSON.stringify({ storeName, address, upiId, timings })}`,
     };
   }
 

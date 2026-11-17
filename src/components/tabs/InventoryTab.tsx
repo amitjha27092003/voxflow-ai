@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { InventoryItem } from "@/types";
+import { InventoryItem, StoreProfile } from "@/types";
 import {
   formatDistributorOrder,
   formatStoreRateList,
   openWhatsAppLink,
+  DEFAULT_STORE_PROFILE,
 } from "@/utils/whatsapp";
 import {
   Package,
@@ -25,6 +26,7 @@ interface InventoryTabProps {
   onUpdateStock: (id: string, delta: number) => void;
   onAddItem: (item: InventoryItem) => void;
   filterLowStockInitial?: boolean;
+  storeProfile?: StoreProfile;
 }
 
 export const InventoryTab: React.FC<InventoryTabProps> = ({
@@ -32,6 +34,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
   onUpdateStock,
   onAddItem,
   filterLowStockInitial = false,
+  storeProfile = DEFAULT_STORE_PROFILE,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [onlyLowStock, setOnlyLowStock] = useState(filterLowStockInitial);
@@ -48,13 +51,13 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
 
   const handleOrderLowStockWhatsApp = () => {
     if (lowStockItems.length === 0) return;
-    const msg = formatDistributorOrder(lowStockItems);
+    const msg = formatDistributorOrder(lowStockItems, storeProfile);
     openWhatsAppLink("919876543299", msg);
   };
 
   const handleShareRateListWhatsApp = () => {
-    const msg = formatStoreRateList(inventory);
-    openWhatsAppLink("919876543210", msg);
+    const msg = formatStoreRateList(inventory, storeProfile);
+    openWhatsAppLink(storeProfile.phone || "919876543210", msg);
   };
 
   const filteredInventory = inventory.filter((item) => {
@@ -109,7 +112,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleShareRateListWhatsApp}
-            title="Broadcast Store Price List to Customers on WhatsApp"
+            title={`Broadcast ${storeProfile.storeName} Price List to Customers on WhatsApp`}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 shadow-2xs transition active:scale-[0.98]"
           >
             <Share2 className="w-3.5 h-3.5 text-emerald-400" />

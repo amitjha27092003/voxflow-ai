@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { Customer, Transaction } from "@/types";
+import { Customer, Transaction, StoreProfile } from "@/types";
 import {
   formatWhatsAppReminder,
   formatKhataStatement,
   openWhatsAppLink,
+  DEFAULT_STORE_PROFILE,
 } from "@/utils/whatsapp";
 import {
   Users,
@@ -23,22 +24,28 @@ import {
   QrCode,
   ShieldCheck,
   FileText,
+  Edit2,
+  Check,
 } from "lucide-react";
 
 interface CustomersTabProps {
   customers: Customer[];
   transactions: Transaction[];
   onAddCustomer: (customer: Customer) => void;
+  onUpdateCustomer?: (customer: Customer) => void;
   selectedCustomerId?: string | null;
   onOpenUPIQR: (customerName: string, amount: number) => void;
+  storeProfile?: StoreProfile;
 }
 
 export const CustomersTab: React.FC<CustomersTabProps> = ({
   customers,
   transactions,
   onAddCustomer,
+  onUpdateCustomer,
   selectedCustomerId,
   onOpenUPIQR,
+  storeProfile = DEFAULT_STORE_PROFILE,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBalance, setFilterBalance] = useState<"ALL" | "DUE" | "ZERO">("ALL");
@@ -49,6 +56,11 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newBalance, setNewBalance] = useState("");
+
+  // Inline editing state
+  const [editingCustId, setEditingCustId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
 
   const filteredCustomers = customers.filter((cust) => {
     if (filterBalance === "DUE" && cust.balance <= 0) return false;
@@ -86,18 +98,51 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
     setShowAddModal(false);
   };
 
+  const startInlineEdit = (cust: Customer, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCustId(cust.id);
+    setEditName(cust.name);
+    setEditPhone(cust.phone);
+  };
+
+  const saveInlineEdit = (cust: Customer, e?: React.MouseEvent | React.FormEvent) => {
+    if (e) e.stopPropagation();
+    if (!editName.trim()) return;
+
+    let cleanPhone = editPhone.trim().replace(/[^0-9]/g, "");
+    if (cleanPhone.length === 10) {
+      cleanPhone = "91" + cleanPhone;
+    }
+
+    const updated: Customer = {
+      ...cust,
+      name: editName.trim(),
+      phone: cleanPhone || cust.phone,
+    };
+
+    if (onUpdateCustomer) {
+      onUpdateCustomer(updated);
+    }
+    setEditingCustId(null);
+  };
+
+  const cancelInlineEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCustId(null);
+  };
+
   const toggleExpand = (id: string) => {
     setExpandedCustomerId((prev) => (prev === id ? null : id));
   };
 
   const handleSendReminder = (customer: Customer) => {
-    const text = formatWhatsAppReminder(customer);
+    const text = formatWhatsAppReminder(customer, storeProfile);
     openWhatsAppLink(customer.phone, text);
   };
 
   const handleShareStatement = (customer: Customer) => {
     const custTxs = transactions.filter((t) => t.customerId === customer.id);
-    const text = formatKhataStatement(customer, custTxs);
+    const text = formatKhataStatement(customer, custTxs, storeProfile);
     openWhatsAppLink(customer.phone, text);
   };
 
@@ -177,6 +222,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             const isExpanded = expandedCustomerId === cust.id;
             const custTransactions = transactions.filter((t) => t.customerId === cust.id);
             const trust = getCustomerTrust(cust.balance);
+            const isEditing = editingCustId === cust.id;
 
             return (
               <div
@@ -185,7 +231,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               >
                 {/* Main Customer Summary Card */}
                 <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div
                       className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 ${
                         isDue
@@ -196,45 +242,91 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                       {cust.name.substring(0, 2).toUpperCase()}
                     </div>
 
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-sm sm:text-base text-white">{cust.name}</h4>
-                        {/* Dynamic AI Credit Trust Score Badge */}
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            trust.color === "emerald"
-                              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                              : trust.color === "amber"
-                              ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                              : "bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                          }`}
-                        >
-                          <ShieldCheck className="w-3 h-3" />
-                          Trust Score: {trust.score}/100 • {trust.label}
-                        </span>
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <div className="space-y-2 py-1" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              placeholder="Customer Name"
+                              className="px-2.5 py-1 text-xs sm:text-sm bg-white/10 border border-white/20 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                            />
+                            <input
+                              type="tel"
+                              value={editPhone}
+                              onChange={(e) => setEditPhone(e.target.value)}
+                              placeholder="Phone (e.g. 9812345678)"
+                              className="px-2.5 py-1 text-xs font-mono bg-white/10 border border-white/20 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                            />
+                            <button
+                              onClick={(e) => saveInlineEdit(cust, e)}
+                              className="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition active:scale-[0.98]"
+                              title="Save changes"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={cancelInlineEdit}
+                              className="p-1.5 bg-white/10 hover:bg-white/20 text-slate-300 rounded-lg transition"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm sm:text-base text-white truncate">{cust.name}</h4>
+                            {/* Inline Edit Pencil Button */}
+                            <button
+                              onClick={(e) => startInlineEdit(cust, e)}
+                              className="p-1 text-slate-400 hover:text-emerald-300 hover:bg-white/[0.05] rounded-md transition"
+                              title="Edit customer name and phone number"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
 
-                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                        <span className="flex items-center gap-1 font-mono">
-                          <Phone className="w-3 h-3" />
-                          {cust.phone}
-                        </span>
-                        <span>•</span>
-                        <span>
-                          Last active:{" "}
-                          {cust.lastActivity
-                            ? new Date(cust.lastActivity).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                              })
-                            : "Recently"}
-                        </span>
-                      </div>
+                            {/* Dynamic AI Credit Trust Score Badge */}
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                                trust.color === "emerald"
+                                  ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                                  : trust.color === "amber"
+                                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                                  : "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                              }`}
+                            >
+                              <ShieldCheck className="w-3 h-3" />
+                              Trust Score: {trust.score}/100 • {trust.label}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                            <span className="flex items-center gap-1 font-mono">
+                              <Phone className="w-3 h-3 text-slate-400" />
+                              {cust.phone}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Last active:{" "}
+                              {cust.lastActivity
+                                ? new Date(cust.lastActivity).toLocaleDateString("en-IN", {
+                                    day: "numeric",
+                                    month: "short",
+                                  })
+                                : "Recently"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Balance & Action Buttons */}
-                  <div className="flex items-center justify-between w-full sm:w-auto sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+                  <div className="flex items-center justify-between w-full sm:w-auto sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10 shrink-0">
                     <div className="text-left sm:text-right">
                       <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                         {isDue ? "Pending Balance" : "Account Status"}
@@ -403,7 +495,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                 </label>
                 <input
                   type="tel"
-                  placeholder="e.g. 919876543215"
+                  placeholder="e.g. 9876543215"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
                   className="w-full px-3 py-2 text-xs sm:text-sm bg-white/[0.04] border border-white/10 text-white placeholder-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/40"

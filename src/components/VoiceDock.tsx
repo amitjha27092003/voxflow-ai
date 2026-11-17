@@ -209,7 +209,8 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
         data.intent === "UNDO_LAST" ||
         data.intent === "RESTOCK" ||
         data.intent === "EXPENSE" ||
-        data.intent === "UPDATE_ITEM"
+        data.intent === "UPDATE_ITEM" ||
+        data.intent === "UPDATE_STORE"
       ) {
         onVoiceSuccess(data, transcriptText);
       }
@@ -264,7 +265,7 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
                     ? "bg-indigo-50 text-indigo-600 border border-indigo-100"
                     : lastResponse.intent === "EXPENSE"
                     ? "bg-amber-50 text-amber-600 border border-amber-100"
-                    : lastResponse.intent === "UPDATE_ITEM"
+                    : lastResponse.intent === "UPDATE_ITEM" || lastResponse.intent === "UPDATE_STORE"
                     ? "bg-teal-50 text-teal-600 border border-teal-100"
                     : "bg-slate-100 text-slate-700 border border-slate-200"
                 }`}

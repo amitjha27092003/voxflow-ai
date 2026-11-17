@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { Customer, Transaction, InventoryItem } from "@/types";
+import { Customer, Transaction, InventoryItem, StoreProfile } from "@/types";
 import {
   formatWhatsAppReminder,
   formatKhataStatement,
   openWhatsAppLink,
+  DEFAULT_STORE_PROFILE,
 } from "@/utils/whatsapp";
 import {
   TrendingUp,
@@ -26,6 +27,7 @@ interface RecoveryInsightsTabProps {
   transactions: Transaction[];
   inventory: InventoryItem[];
   onSelectCustomer: (customerId: string) => void;
+  storeProfile?: StoreProfile;
 }
 
 export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
@@ -33,6 +35,7 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
   transactions,
   inventory,
   onSelectCustomer,
+  storeProfile = DEFAULT_STORE_PROFILE,
 }) => {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [sentSuccessIds, setSentSuccessIds] = useState<string[]>([]);
@@ -46,7 +49,7 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
   const totalDebtors = customers.filter((c) => c.balance > 0).length;
 
   const handleSendSingleReminder = (c: Customer) => {
-    const text = formatWhatsAppReminder(c);
+    const text = formatWhatsAppReminder(c, storeProfile);
     openWhatsAppLink(c.phone, text);
     if (!sentSuccessIds.includes(c.id)) {
       setSentSuccessIds((prev) => [...prev, c.id]);
@@ -55,7 +58,7 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
 
   const handleShareSingleStatement = (c: Customer) => {
     const custTxs = transactions.filter((t) => t.customerId === c.id);
-    const text = formatKhataStatement(c, custTxs);
+    const text = formatKhataStatement(c, custTxs, storeProfile);
     openWhatsAppLink(c.phone, text);
   };
 
@@ -235,13 +238,10 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
         </div>
         <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
           <li>
-            <strong>Gupta General Store</strong> carries the highest pending balance (₹2,150). Recommended policy: require a minimum 50% partial payment prior to fulfilling new credit requests.
+            <strong>High debt policy:</strong> For customers with &gt; ₹500 balance, recommend a minimum 50% partial payment prior to fulfilling new credit requests.
           </li>
           <li>
-            <strong>Fortune Sunflower Oil</strong> and <strong>Toor Dal</strong> have reached critical inventory thresholds (≤ 5 units). Reordering is advised to prevent stockouts.
-          </li>
-          <li>
-            Indian retail benchmarks show that merchants dispatching automated WhatsApp reminders within 48 hours achieve an <strong>82% faster recovery rate</strong> via UPI.
+            Indian retail benchmarks show that merchants dispatching automated WhatsApp reminders within 48 hours achieve an <strong>82% faster recovery rate</strong> via UPI ({storeProfile.upiId}).
           </li>
         </ul>
       </div>
@@ -256,7 +256,7 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
                   Bulk WhatsApp Reminders
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Dispatch payment notices to all {overdueCustomers.length} overdue customer accounts
+                  Dispatch payment notices to all {overdueCustomers.length} overdue customer accounts for {storeProfile.storeName}
                 </p>
               </div>
               <button
@@ -271,11 +271,12 @@ export const RecoveryInsightsTab: React.FC<RecoveryInsightsTabProps> = ({
               <div className="bg-white/[0.03] p-3 rounded-xl border border-white/10 text-xs text-slate-300">
                 <span className="font-bold text-white">Message Preview:</span>
                 <p className="mt-1 font-mono text-[11px] whitespace-pre-line bg-black/40 p-2.5 rounded-lg border border-white/10 text-slate-300">
-                  {`🙏 *GUPTA KIRANA STORE*
+                  {`🙏 *${storeProfile.storeName.toUpperCase()}*
 Payment Notice for [Customer Name]:
 Your current pending balance is: ₹[Balance].
 Please settle via UPI or Cash at your earliest convenience.
-UPI ID: guptakirana@upi`}
+UPI ID: ${storeProfile.upiId}
+Address: ${storeProfile.address}`}
                 </p>
               </div>
 

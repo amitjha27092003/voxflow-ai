@@ -1,3 +1,12 @@
+export interface StoreProfile {
+  storeName: string;
+  ownerName: string;
+  address: string;
+  timings: string;
+  upiId: string;
+  phone: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -83,8 +92,17 @@ export interface ExpenseDetails {
   category?: string;
 }
 
+export interface StoreUpdateDetails {
+  storeName?: string;
+  ownerName?: string;
+  address?: string;
+  timings?: string;
+  upiId?: string;
+  phone?: string;
+}
+
 export interface VoiceProcessResponse {
-  intent: "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK" | "EXPENSE" | "UPDATE_ITEM";
+  intent: "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST" | "RESTOCK" | "EXPENSE" | "UPDATE_ITEM" | "UPDATE_STORE";
   confidence: number;
   clarification_question_hi: string | null;
   voice_response_hi: string;
@@ -94,6 +112,7 @@ export interface VoiceProcessResponse {
   restock_items?: RestockItem[];
   expense_details?: ExpenseDetails;
   item_update?: ItemUpdateDetails;
+  store_update?: StoreUpdateDetails;
   query_answer_hi: string | null;
   insight_data?: {
     type?: "DEBTOR" | "INVENTORY" | "SUMMARY";

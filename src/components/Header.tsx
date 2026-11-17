@@ -1,14 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import { Mic, RotateCcw, Store, CheckCircle2 } from "lucide-react";
+import { StoreProfile } from "@/types";
+import { Mic, RotateCcw, Store, CheckCircle2, Settings } from "lucide-react";
 
 interface HeaderProps {
   onResetData: () => void;
   isListening: boolean;
+  storeProfile: StoreProfile;
+  onOpenSettings: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onResetData, isListening }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onResetData,
+  isListening,
+  storeProfile,
+  onOpenSettings,
+}) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
 
@@ -38,10 +46,23 @@ export const Header: React.FC<HeaderProps> = ({ onResetData, isListening }) => {
                 Hinglish Voice Active
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium flex items-center gap-1 mt-0.5">
-              <Store className="w-3.5 h-3.5 text-slate-400" />
-              Gupta Kirana Store • Voice Retail OS
-            </p>
+
+            {/* Clickable Store Profile Subtitle */}
+            <button
+              onClick={onOpenSettings}
+              className="text-xs text-slate-400 hover:text-emerald-300 font-medium flex items-center gap-1.5 mt-0.5 group transition"
+              title="Click to customize store profile & settings"
+            >
+              <Store className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 transition" />
+              <span className="font-semibold text-slate-200 group-hover:text-emerald-300 transition">
+                {storeProfile.storeName}
+              </span>
+              <span>•</span>
+              <span className="text-[11px] text-slate-400">
+                {storeProfile.address ? storeProfile.address.split(",")[0] : "Voice Retail OS"}
+              </span>
+              <Settings className="w-3 h-3 opacity-0 group-hover:opacity-100 text-emerald-400 transition" />
+            </button>
           </div>
         </div>
 
@@ -52,6 +73,16 @@ export const Header: React.FC<HeaderProps> = ({ onResetData, isListening }) => {
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Demo Reset Complete
             </span>
           ) : null}
+
+          {/* Settings Icon Button */}
+          <button
+            onClick={onOpenSettings}
+            title="Store Settings & Multi-Store Profile"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 shadow-xs active:scale-[0.98] transition duration-150"
+          >
+            <Settings className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Store Settings</span>
+          </button>
 
           <button
             onClick={() => setShowConfirm(true)}

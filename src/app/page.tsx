@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Customer, InventoryItem, Transaction, VoiceProcessResponse } from "@/types";
+import { Customer, InventoryItem, Transaction, VoiceProcessResponse, StoreProfile } from "@/types";
 import {
   INITIAL_CUSTOMERS,
   INITIAL_INVENTORY,
   INITIAL_TRANSACTIONS,
 } from "@/data/seedData";
+import { DEFAULT_STORE_PROFILE } from "@/utils/whatsapp";
 import { Header } from "@/components/Header";
 import { KPICards } from "@/components/KPICards";
 import { TabsNav, TabType } from "@/components/TabsNav";
@@ -16,11 +17,13 @@ import { InventoryTab } from "@/components/tabs/InventoryTab";
 import { RecoveryInsightsTab } from "@/components/tabs/RecoveryInsightsTab";
 import { VoiceDock } from "@/components/VoiceDock";
 import { UPIQRModal } from "@/components/UPIQRModal";
+import { StoreSettingsModal } from "@/components/StoreSettingsModal";
 import { Sparkles, Undo2, X } from "lucide-react";
 
 const STORAGE_KEY_CUSTOMERS = "voxflow_customers_v1";
 const STORAGE_KEY_INVENTORY = "voxflow_inventory_v1";
 const STORAGE_KEY_TRANSACTIONS = "voxflow_transactions_v1";
+const STORAGE_KEY_STORE_PROFILE = "voxflow_store_profile_v1";
 
 interface ActiveInsight {
   query: string;
@@ -29,6 +32,8 @@ interface ActiveInsight {
 }
 
 export default function Home() {
+  const [storeProfile, setStoreProfile] = useState<StoreProfile>(DEFAULT_STORE_PROFILE);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
   const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
@@ -53,10 +58,12 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
     try {
+      const storedProfile = localStorage.getItem(STORAGE_KEY_STORE_PROFILE);
       const storedCustomers = localStorage.getItem(STORAGE_KEY_CUSTOMERS);
       const storedInventory = localStorage.getItem(STORAGE_KEY_INVENTORY);
       const storedTransactions = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
 
+      if (storedProfile) setStoreProfile(JSON.parse(storedProfile));
       if (storedCustomers) setCustomers(JSON.parse(storedCustomers));
       if (storedInventory) setInventory(JSON.parse(storedInventory));
       if (storedTransactions) setTransactions(JSON.parse(storedTransactions));
@@ -69,13 +76,14 @@ export default function Home() {
   useEffect(() => {
     if (!isClient) return;
     try {
+      localStorage.setItem(STORAGE_KEY_STORE_PROFILE, JSON.stringify(storeProfile));
       localStorage.setItem(STORAGE_KEY_CUSTOMERS, JSON.stringify(customers));
       localStorage.setItem(STORAGE_KEY_INVENTORY, JSON.stringify(inventory));
       localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(transactions));
     } catch (e) {
       console.warn("Could not save to localStorage:", e);
     }
-  }, [customers, inventory, transactions, isClient]);
+  }, [storeProfile, customers, inventory, transactions, isClient]);
 
   // Reset Demo Data handler
   const handleResetData = () => {
@@ -93,6 +101,34 @@ export default function Home() {
     }
   };
 
+  // Start Blank Store (Clear sample data for real shopkeepers)
+  const handleClearSampleData = () => {
+    setCustomers([]);
+    setTransactions([]);
+    setActiveInsight(null);
+    setUndoToast("Sample demo data cleared. Your store is now ready for your real customers.");
+    try {
+      localStorage.setItem(STORAGE_KEY_CUSTOMERS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify([]));
+    } catch (e) {
+      console.warn("Error clearing sample data in localStorage:", e);
+    }
+  };
+
+  // Save Store Profile
+  const handleSaveStoreProfile = (updatedProfile: StoreProfile) => {
+    setStoreProfile(updatedProfile);
+    setUndoToast(`Store profile saved: ${updatedProfile.storeName}`);
+  };
+
+  // Update Customer
+  const handleUpdateCustomer = (updatedCust: Customer) => {
+    setCustomers((prev) =>
+      prev.map((c) => (c.id === updatedCust.id ? updatedCust : c))
+    );
+    setUndoToast(`Updated customer: ${updatedCust.name}`);
+  };
+
   // Helper to match inventory item name fuzzily
   const findMatchingInventoryItem = (itemName: string): InventoryItem | undefined => {
     const q = itemName.toLowerCase().trim();
@@ -106,7 +142,7 @@ export default function Home() {
     });
   };
 
-  // Voice AI Action Handler (Transactions, Undo, Conversational Analytics)
+  // Voice AI Action Handler (Transactions, Undo, Conversational Analytics, Store Config)
   const handleVoiceSuccess = (response: VoiceProcessResponse, rawTranscript: string) => {
     // 1. Handle UNDO_LAST Intent
     if (response.intent === "UNDO_LAST") {
@@ -158,71 +194,52 @@ export default function Home() {
     if (response.intent === "QUERY") {
       setActiveInsight({
         query: rawTranscript,
-        answer: response.query_answer_hi || response.voiceFeedback || response.voice_response_hi,
+        answer: response.query_answer_hi || response.voiceFeedback || "Query computed successfully.",
         data: response.insight_data,
       });
-
-      // Switch tab intelligently if user asked about stock or debtor
-      if (response.insight_data?.type === "INVENTORY") {
-        setFilterLowStockInitial(true);
-        setActiveTab("inventory");
-      } else if (response.insight_data?.type === "DEBTOR") {
-        setActiveTab("recovery");
-      }
       return;
     }
 
-    // 3. Handle RESTOCK Intent (Voice Inventory Restocking)
-    if (response.intent === "RESTOCK") {
-      const restockItems = response.restock_items || [];
-      if (restockItems.length === 0) {
-        setUndoToast("No items found to restock.");
-        return;
-      }
-
+    // 3. Handle RESTOCK Intent (Incoming inventory deliveries)
+    if (response.intent === "RESTOCK" && response.restock_items && response.restock_items.length > 0) {
       let updatedInventory = [...inventory];
-      const restockedSummary: string[] = [];
+      const restockedSummaries: string[] = [];
 
-      restockItems.forEach((rItem) => {
-        const match = findMatchingInventoryItem(rItem.name);
+      response.restock_items.forEach((restock) => {
+        const match = findMatchingInventoryItem(restock.name);
         if (match) {
-          updatedInventory = updatedInventory.map((inv) =>
-            inv.id === match.id ? { ...inv, stock: inv.stock + (rItem.qty || 0) } : inv
+          updatedInventory = updatedInventory.map((item) =>
+            item.id === match.id ? { ...item, stock: item.stock + (restock.qty || 1) } : item
           );
-          restockedSummary.push(`${match.name} (+${rItem.qty} ${rItem.unit})`);
+          restockedSummaries.push(`+${restock.qty} ${restock.unit || match.unit} ${match.name}`);
         } else {
-          const newId = `inv-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-          updatedInventory.push({
-            id: newId,
-            name: rItem.name,
+          const newSku: InventoryItem = {
+            id: `inv-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            name: restock.name,
             unitPrice: 50,
-            stock: rItem.qty || 10,
-            unit: rItem.unit || "unit",
+            stock: restock.qty || 10,
+            unit: restock.unit || "kg",
             category: "General",
-          });
-          restockedSummary.push(`${rItem.name} (+${rItem.qty} ${rItem.unit})`);
+          };
+          updatedInventory.push(newSku);
+          restockedSummaries.push(`+${restock.qty} ${restock.unit || "kg"} ${restock.name} (New SKU)`);
         }
       });
 
       setInventory(updatedInventory);
-      setUndoToast(`Restocked: ${restockedSummary.join(", ")}. Inventory updated.`);
+      setUndoToast(`Inventory restocked: ${restockedSummaries.join(", ")}`);
       setActiveInsight({
         query: rawTranscript,
-        answer: response.query_answer_hi || `Restocked: ${restockedSummary.join(", ")}`,
+        answer: response.query_answer_hi || `Restocked: ${restockedSummaries.join(", ")}`,
         data: { type: "INVENTORY" },
       });
       setActiveTab("inventory");
       return;
     }
 
-    // 4. Handle EXPENSE Intent (Voice Daily Expense Tracker)
-    if (response.intent === "EXPENSE") {
-      const exp = response.expense_details || {
-        title: "Store Overhead Expense",
-        amount: 100,
-        category: "General",
-      };
-
+    // 4. Handle EXPENSE Intent (Daily shop expenses & petty cash)
+    if (response.intent === "EXPENSE" && response.expense_details) {
+      const exp = response.expense_details;
       const newTx: Transaction = {
         id: `tx-exp-${Date.now()}`,
         customerId: "store-expense",
@@ -296,7 +313,29 @@ export default function Home() {
       return;
     }
 
-    // 6. Handle TRANSACTION Intent
+    // 6. Handle UPDATE_STORE Intent (Voice Store Customization)
+    if (response.intent === "UPDATE_STORE" && response.store_update) {
+      const upd = response.store_update;
+      const updatedProfile: StoreProfile = {
+        storeName: upd.storeName || storeProfile.storeName,
+        ownerName: upd.ownerName || storeProfile.ownerName,
+        address: upd.address || storeProfile.address,
+        timings: upd.timings || storeProfile.timings,
+        upiId: upd.upiId || storeProfile.upiId,
+        phone: upd.phone || storeProfile.phone,
+      };
+
+      setStoreProfile(updatedProfile);
+      setUndoToast(`Store profile updated: ${updatedProfile.storeName}`);
+      setActiveInsight({
+        query: rawTranscript,
+        answer: `Store settings updated: ${updatedProfile.storeName} • Address: ${updatedProfile.address} • UPI ID: ${updatedProfile.upiId}`,
+        data: { type: "SUMMARY" },
+      });
+      return;
+    }
+
+    // 7. Handle TRANSACTION Intent
     if (!response.actions || response.actions.length === 0) return;
 
     let updatedCustomers = [...customers];
@@ -449,8 +488,13 @@ export default function Home() {
 
   return (
     <main className="min-h-screen pb-56 sm:pb-64">
-      {/* Header */}
-      <Header onResetData={handleResetData} isListening={isListening} />
+      {/* Header with storeProfile and settings trigger */}
+      <Header
+        onResetData={handleResetData}
+        isListening={isListening}
+        storeProfile={storeProfile}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
 
       {/* Top 4 KPI Cards */}
       <KPICards
@@ -537,6 +581,7 @@ export default function Home() {
             customers={customers}
             onSelectCustomer={handleSelectCustomer}
             onOpenUPIQR={handleOpenUPIQR}
+            storeProfile={storeProfile}
           />
         )}
 
@@ -545,8 +590,10 @@ export default function Home() {
             customers={customers}
             transactions={transactions}
             onAddCustomer={handleAddCustomer}
+            onUpdateCustomer={handleUpdateCustomer}
             selectedCustomerId={selectedCustomerId}
             onOpenUPIQR={handleOpenUPIQR}
+            storeProfile={storeProfile}
           />
         )}
 
@@ -556,6 +603,7 @@ export default function Home() {
             onUpdateStock={handleUpdateStock}
             onAddItem={handleAddInventoryItem}
             filterLowStockInitial={filterLowStockInitial}
+            storeProfile={storeProfile}
           />
         )}
 
@@ -565,6 +613,7 @@ export default function Home() {
             transactions={transactions}
             inventory={inventory}
             onSelectCustomer={handleSelectCustomer}
+            storeProfile={storeProfile}
           />
         )}
       </div>
@@ -575,9 +624,19 @@ export default function Home() {
         onClose={() => setUpiModalState((prev) => ({ ...prev, isOpen: false }))}
         customerName={upiModalState.customerName}
         amount={upiModalState.amount}
+        storeProfile={storeProfile}
       />
 
-      {/* Sticky Bottom Voice Dock (The Hero Component) */}
+      {/* Store Profile & SaaS Settings Modal */}
+      <StoreSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        storeProfile={storeProfile}
+        onSaveProfile={handleSaveStoreProfile}
+        onClearSampleData={handleClearSampleData}
+      />
+
+      {/* Sticky Bottom Voice Dock */}
       <VoiceDock
         customers={customers}
         inventory={inventory}

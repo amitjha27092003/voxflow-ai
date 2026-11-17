@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { StoreProfile } from "@/types";
+import { DEFAULT_STORE_PROFILE } from "@/utils/whatsapp";
 import { QrCode, X, Copy, Check, ExternalLink, ShieldCheck, Smartphone } from "lucide-react";
 
 interface UPIQRModalProps {
@@ -9,6 +11,7 @@ interface UPIQRModalProps {
   customerName: string;
   amount: number;
   note?: string;
+  storeProfile?: StoreProfile;
 }
 
 export const UPIQRModal: React.FC<UPIQRModalProps> = ({
@@ -16,14 +19,15 @@ export const UPIQRModal: React.FC<UPIQRModalProps> = ({
   onClose,
   customerName,
   amount,
-  note = "Gupta Kirana Store Bill",
+  note = "Store Bill",
+  storeProfile = DEFAULT_STORE_PROFILE,
 }) => {
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
-  const upiId = "guptakirana@upi";
-  const payeeName = "Gupta Kirana Store";
+  const upiId = storeProfile.upiId || "guptakirana@upi";
+  const payeeName = storeProfile.storeName || "Gupta Kirana Store";
   const validAmount = Math.max(0, amount);
 
   // Standard NPCI UPI URI Scheme
@@ -53,7 +57,7 @@ export const UPIQRModal: React.FC<UPIQRModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Instant UPI Payment</h3>
-              <p className="text-[11px] text-slate-400">Gupta Kirana Store</p>
+              <p className="text-[11px] text-slate-400 truncate max-w-[180px]">{payeeName}</p>
             </div>
           </div>
           <button
@@ -94,9 +98,11 @@ export const UPIQRModal: React.FC<UPIQRModalProps> = ({
           <div className="mt-4 bg-white/[0.04] border border-white/10 rounded-2xl p-2.5 flex items-center justify-between">
             <div className="text-left pl-1">
               <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                UPI ID
+                Store UPI ID
               </div>
-              <div className="text-xs font-mono font-bold text-emerald-300">{upiId}</div>
+              <div className="text-xs font-mono font-bold text-emerald-300 truncate max-w-[160px] sm:max-w-[190px]">
+                {upiId}
+              </div>
             </div>
             <button
               onClick={handleCopy}

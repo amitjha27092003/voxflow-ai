@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Transaction, Customer } from "@/types";
-import { formatWhatsAppBill, openWhatsAppLink } from "@/utils/whatsapp";
+import { Transaction, Customer, StoreProfile } from "@/types";
+import { formatWhatsAppBill, openWhatsAppLink, DEFAULT_STORE_PROFILE } from "@/utils/whatsapp";
 import {
   Share2,
   Calendar,
@@ -23,6 +23,7 @@ interface LiveFeedTabProps {
   customers: Customer[];
   onSelectCustomer: (customerId: string) => void;
   onOpenUPIQR: (customerName: string, amount: number) => void;
+  storeProfile?: StoreProfile;
 }
 
 export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
@@ -30,6 +31,7 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
   customers,
   onSelectCustomer,
   onOpenUPIQR,
+  storeProfile = DEFAULT_STORE_PROFILE,
 }) => {
   const [filterType, setFilterType] = useState<"ALL" | "UDHAAR" | "JAMA" | "EXPENSE">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,7 +52,7 @@ export const LiveFeedTab: React.FC<LiveFeedTabProps> = ({
   const handleWhatsAppParchi = (tx: Transaction) => {
     const customer = customers.find((c) => c.id === tx.customerId);
     const balance = customer ? customer.balance : tx.totalAmount;
-    const message = formatWhatsAppBill(tx, balance);
+    const message = formatWhatsAppBill(tx, balance, storeProfile);
     openWhatsAppLink(tx.customerPhone || "919876543210", message);
   };
 

@@ -1,6 +1,19 @@
-import { Transaction, Customer, InventoryItem } from "@/types";
+import { Transaction, Customer, InventoryItem, StoreProfile } from "@/types";
 
-export function formatWhatsAppBill(transaction: Transaction, currentBalance: number): string {
+export const DEFAULT_STORE_PROFILE: StoreProfile = {
+  storeName: "Gupta Kirana Store",
+  ownerName: "Rajesh Gupta",
+  address: "Main Market, Sector 87",
+  timings: "8:00 AM – 10:00 PM",
+  upiId: "guptakirana@upi",
+  phone: "919876543210",
+};
+
+export function formatWhatsAppBill(
+  transaction: Transaction,
+  currentBalance: number,
+  store: StoreProfile = DEFAULT_STORE_PROFILE
+): string {
   const dateStr = new Date(transaction.timestamp).toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
     day: "numeric",
@@ -24,7 +37,7 @@ export function formatWhatsAppBill(transaction: Transaction, currentBalance: num
         .join("\n");
   }
 
-  const message = `🧾 *GUPTA KIRANA STORE*
+  const message = `🧾 *${store.storeName.toUpperCase()}*
 _Digital Receipt • Powered by VoxFlow AI_
 ━━━━━━━━━━━━━━━━━━━━
 Customer: *${transaction.customerName}*
@@ -38,13 +51,17 @@ ${itemsText}
 📊 *Total Outstanding Credit: ₹${currentBalance}*
 
 Thank you for your business! 🙏
-📍 Gupta Kirana Store • Main Market`;
+📍 ${store.storeName} • ${store.address}
+⏰ Hours: ${store.timings}`;
 
   return message;
 }
 
-export function formatWhatsAppReminder(customer: Customer): string {
-  const message = `🙏 *GUPTA KIRANA STORE*
+export function formatWhatsAppReminder(
+  customer: Customer,
+  store: StoreProfile = DEFAULT_STORE_PROFILE
+): string {
+  const message = `🙏 *${store.storeName.toUpperCase()}*
 _Payment Notice • Powered by VoxFlow AI_
 ━━━━━━━━━━━━━━━━━━━━
 Hello *${customer.name}*,
@@ -54,16 +71,20 @@ This is a gentle payment reminder regarding your pending store credit balance:
 
 Please settle your pending balance via UPI or Cash at your earliest convenience.
 
-💳 UPI ID: guptakirana@upi
-📞 Store Contact: +91 98765 43210
+💳 UPI ID: ${store.upiId}
+📞 Store Helpline: ${store.phone || "+91 98765 43210"}
+📍 Address: ${store.address}
 
 Thank you!
-Gupta Kirana Store • Powered by VoxFlow AI`;
+${store.storeName} • Powered by VoxFlow AI`;
 
   return message;
 }
 
-export function formatDistributorOrder(lowStockItems: InventoryItem[]): string {
+export function formatDistributorOrder(
+  lowStockItems: InventoryItem[],
+  store: StoreProfile = DEFAULT_STORE_PROFILE
+): string {
   const dateStr = new Date().toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -72,13 +93,12 @@ export function formatDistributorOrder(lowStockItems: InventoryItem[]): string {
 
   const itemsList = lowStockItems
     .map((item, idx) => {
-      // Suggesting standard retail restock quantity
       const suggestQty = item.unit === "kg" ? 25 : item.unit === "L" ? 20 : 24;
       return `${idx + 1}. *${item.name}*\n   Current Stock: ${item.stock} ${item.unit} | Order Quantity: ${suggestQty} ${item.unit}`;
     })
     .join("\n\n");
 
-  const message = `📦 *PURCHASE ORDER — GUPTA KIRANA STORE*
+  const message = `📦 *PURCHASE ORDER — ${store.storeName.toUpperCase()}*
 _Wholesale Restock Request • Date: ${dateStr}_
 ━━━━━━━━━━━━━━━━━━━━
 Dear Distributor / Vendor,
@@ -88,9 +108,9 @@ Please dispatch the following replenishment items to our store:
 ${itemsList}
 
 📍 *Delivery Location:*
-Gupta Kirana Store, Shop #12, Main Market
-📞 Contact: +91 98765 43210
-💳 Payment: Immediate on delivery via UPI/Cheque
+${store.storeName}, ${store.address}
+📞 Contact: ${store.phone || "+91 98765 43210"} (${store.ownerName})
+💳 Payment: Immediate on delivery via UPI/Cheque (${store.upiId})
 
 Thank you!
 ━━━━━━━━━━━━━━━━━━━━
@@ -99,7 +119,11 @@ _Generated via VoxFlow AI Retail Copilot_`;
   return message;
 }
 
-export function formatKhataStatement(customer: Customer, customerTxs: Transaction[]): string {
+export function formatKhataStatement(
+  customer: Customer,
+  customerTxs: Transaction[],
+  store: StoreProfile = DEFAULT_STORE_PROFILE
+): string {
   const dateStr = new Date().toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -125,9 +149,11 @@ export function formatKhataStatement(customer: Customer, customerTxs: Transactio
           })
           .join("\n");
 
-  const upiLink = `upi://pay?pa=guptakirana@upi&pn=Gupta%20Kirana%20Store&am=${customer.balance}&cu=INR`;
+  const upiLink = `upi://pay?pa=${encodeURIComponent(store.upiId)}&pn=${encodeURIComponent(
+    store.storeName
+  )}&am=${customer.balance}&cu=INR`;
 
-  return `📜 *DIGITAL KHATA STATEMENT — GUPTA KIRANA STORE*
+  return `📜 *DIGITAL KHATA STATEMENT — ${store.storeName.toUpperCase()}*
 _Official Customer Account Statement • ${dateStr}_
 ━━━━━━━━━━━━━━━━━━━━
 Grahak Name: *${customer.name}*
@@ -142,14 +168,18 @@ ${txLines}
 💳 *Pay Online via Instant UPI:*
 ${upiLink}
 
-UPI ID: *guptakirana@upi*
-🏬 Gupta Kirana Store, Shop #12, Main Market
-📞 Store Helpline: +91 98765 43210
+UPI ID: *${store.upiId}*
+🏬 ${store.storeName}, ${store.address}
+⏰ Timings: ${store.timings}
+📞 Store Helpline: ${store.phone || "+91 98765 43210"}
 
 _Thank you for your business! Powered by VoxFlow AI_`;
 }
 
-export function formatStoreRateList(inventory: InventoryItem[]): string {
+export function formatStoreRateList(
+  inventory: InventoryItem[],
+  store: StoreProfile = DEFAULT_STORE_PROFILE
+): string {
   const dateStr = new Date().toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -163,7 +193,7 @@ export function formatStoreRateList(inventory: InventoryItem[]): string {
     })
     .join("\n");
 
-  return `🛒 *TODAY'S STORE RATE LIST — GUPTA KIRANA STORE*
+  return `🛒 *TODAY'S STORE RATE LIST — ${store.storeName.toUpperCase()}*
 _Daily Fresh Rates & Inventory Catalog • ${dateStr}_
 ━━━━━━━━━━━━━━━━━━━━
 Namaste! Here are today's verified prices for grocery & daily essentials:
@@ -172,10 +202,11 @@ ${itemsList}
 
 ━━━━━━━━━━━━━━━━━━━━
 🛵 *Free Home Delivery for orders above ₹300!*
-📞 Call / WhatsApp Order: *+91 98765 43210*
-💳 Payment: Cash on Delivery or UPI (*guptakirana@upi*)
+📞 Call / WhatsApp Order: *${store.phone || "+91 98765 43210"}*
+💳 Payment: Cash on Delivery or UPI (*${store.upiId}*)
 
-📍 Gupta Kirana Store, Main Colony Market
+📍 ${store.storeName}, ${store.address}
+⏰ Hours: ${store.timings}
 _Powered by VoxFlow AI Retail Copilot_`;
 }
 
