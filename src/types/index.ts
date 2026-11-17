@@ -52,10 +52,15 @@ export interface VoiceAction {
 }
 
 export interface VoiceProcessResponse {
-  intent: "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED";
+  intent: "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST";
   confidence: number;
   clarification_question_hi: string | null;
   voice_response_hi: string;
   actions: VoiceAction[];
   query_answer_hi: string | null;
+  insight_data?: {
+    type?: "DEBTOR" | "INVENTORY" | "SUMMARY";
+    title?: string;
+    metrics?: Record<string, any>;
+  };
 }

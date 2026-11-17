@@ -15,10 +15,17 @@ import { CustomersTab } from "@/components/tabs/CustomersTab";
 import { InventoryTab } from "@/components/tabs/InventoryTab";
 import { RecoveryInsightsTab } from "@/components/tabs/RecoveryInsightsTab";
 import { VoiceDock } from "@/components/VoiceDock";
+import { Sparkles, Undo2, X } from "lucide-react";
 
 const STORAGE_KEY_CUSTOMERS = "voxflow_customers_v1";
 const STORAGE_KEY_INVENTORY = "voxflow_inventory_v1";
 const STORAGE_KEY_TRANSACTIONS = "voxflow_transactions_v1";
+
+interface ActiveInsight {
+  query: string;
+  answer: string;
+  data?: any;
+}
 
 export default function Home() {
   const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
@@ -29,6 +36,8 @@ export default function Home() {
   const [filterLowStockInitial, setFilterLowStockInitial] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [activeInsight, setActiveInsight] = useState<ActiveInsight | null>(null);
+  const [undoToast, setUndoToast] = useState<string | null>(null);
 
   // Initialize from localStorage safely on client mount
   useEffect(() => {
@@ -63,6 +72,8 @@ export default function Home() {
     setCustomers(INITIAL_CUSTOMERS);
     setInventory(INITIAL_INVENTORY);
     setTransactions(INITIAL_TRANSACTIONS);
+    setActiveInsight(null);
+    setUndoToast(null);
     try {
       localStorage.setItem(STORAGE_KEY_CUSTOMERS, JSON.stringify(INITIAL_CUSTOMERS));
       localStorage.setItem(STORAGE_KEY_INVENTORY, JSON.stringify(INITIAL_INVENTORY));
@@ -85,8 +96,73 @@ export default function Home() {
     });
   };
 
-  // Voice AI Action Handler
+  // Voice AI Action Handler (Transactions, Undo, Conversational Analytics)
   const handleVoiceSuccess = (response: VoiceProcessResponse, rawTranscript: string) => {
+    // 1. Handle UNDO_LAST Intent
+    if (response.intent === "UNDO_LAST") {
+      if (transactions.length === 0) {
+        setUndoToast("No previous transactions found to revert.");
+        return;
+      }
+
+      const lastTx = transactions[0];
+      let updatedCustomers = [...customers];
+      let updatedInventory = [...inventory];
+
+      // Revert customer balance
+      updatedCustomers = updatedCustomers.map((c) => {
+        if (c.id === lastTx.customerId) {
+          const newBal =
+            lastTx.type === "UDHAAR"
+              ? Math.max(0, c.balance - lastTx.totalAmount)
+              : c.balance + lastTx.totalAmount;
+          return { ...c, balance: newBal, lastActivity: new Date().toISOString() };
+        }
+        return c;
+      });
+
+      // If UDHAAR, revert stock deduction by restoring item quantities
+      if (lastTx.type === "UDHAAR" && lastTx.items && lastTx.items.length > 0) {
+        lastTx.items.forEach((item) => {
+          const match = findMatchingInventoryItem(item.name);
+          if (match) {
+            updatedInventory = updatedInventory.map((inv) =>
+              inv.id === match.id ? { ...inv, stock: inv.stock + item.qty } : inv
+            );
+          }
+        });
+      }
+
+      setCustomers(updatedCustomers);
+      setInventory(updatedInventory);
+      setTransactions((prev) => prev.slice(1));
+
+      const typeLabel = lastTx.type === "UDHAAR" ? "Credit" : "Payment";
+      setUndoToast(
+        `Cancelled last ${typeLabel} of ₹${lastTx.totalAmount} for ${lastTx.customerName}. Balances & stock restored.`
+      );
+      return;
+    }
+
+    // 2. Handle QUERY Intent (Conversational Business Analytics)
+    if (response.intent === "QUERY") {
+      setActiveInsight({
+        query: rawTranscript,
+        answer: response.query_answer_hi || response.voice_response_hi,
+        data: response.insight_data,
+      });
+
+      // Switch tab intelligently if user asked about stock or debtor
+      if (response.insight_data?.type === "INVENTORY") {
+        setFilterLowStockInitial(true);
+        setActiveTab("inventory");
+      } else if (response.insight_data?.type === "DEBTOR") {
+        setActiveTab("recovery");
+      }
+      return;
+    }
+
+    // 3. Handle TRANSACTION Intent
     if (!response.actions || response.actions.length === 0) return;
 
     let updatedCustomers = [...customers];
@@ -94,7 +170,7 @@ export default function Home() {
     let newTransactions: Transaction[] = [];
 
     response.actions.forEach((action, idx) => {
-      // 1. Resolve Customer
+      // Resolve Customer
       let targetCustomer = updatedCustomers.find(
         (c) =>
           c.name.toLowerCase().includes(action.customer_name.toLowerCase()) ||
@@ -102,7 +178,6 @@ export default function Home() {
       );
 
       if (!targetCustomer) {
-        // Auto-create new customer
         targetCustomer = {
           id: `cust-${Date.now()}-${idx}`,
           name: action.customer_name,
@@ -113,19 +188,18 @@ export default function Home() {
         updatedCustomers.push(targetCustomer);
       }
 
-      // 2. Adjust Balance
+      // Adjust Balance
       const isUdhaar = action.transaction_type === "UDHAAR";
       const amount = action.total_amount || 0;
 
       if (isUdhaar) {
         targetCustomer.balance += amount;
       } else {
-        // JAMA (Payment received)
         targetCustomer.balance = Math.max(0, targetCustomer.balance - amount);
       }
       targetCustomer.lastActivity = new Date().toISOString();
 
-      // 3. Deduct Inventory for items sold via voice
+      // Deduct Inventory for items sold via voice
       if (isUdhaar && action.items && action.items.length > 0) {
         action.items.forEach((item) => {
           const match = findMatchingInventoryItem(item.name);
@@ -139,7 +213,7 @@ export default function Home() {
         });
       }
 
-      // 4. Create Transaction Record
+      // Create Transaction Record
       const newTx: Transaction = {
         id: `tx-${Date.now()}-${idx}`,
         customerId: targetCustomer.id,
@@ -158,6 +232,7 @@ export default function Home() {
     setCustomers(updatedCustomers);
     setInventory(updatedInventory);
     setTransactions((prev) => [...newTransactions, ...prev]);
+    setUndoToast(null);
   };
 
   // Stock update from Inventory tab
@@ -210,7 +285,7 @@ export default function Home() {
   const overdueCount = customers.filter((c) => c.balance > 500).length;
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-48 sm:pb-52">
+    <main className="min-h-screen bg-[#F8FAFC] pb-56 sm:pb-64">
       {/* Header */}
       <Header onResetData={handleResetData} isListening={isListening} />
 
@@ -242,6 +317,55 @@ export default function Home() {
 
       {/* Main Tab Content Panels */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-4">
+        {/* Undo Toast Notification Banner */}
+        {undoToast && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-3.5 mb-4 shadow-xs flex items-center justify-between gap-3 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <Undo2 className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{undoToast}</span>
+            </div>
+            <button
+              onClick={() => setUndoToast(null)}
+              className="p-1 text-rose-400 hover:text-rose-700 rounded-lg transition"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Highlighted Conversational Business Insight Card */}
+        {activeInsight && (
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4 sm:p-5 mb-4 shadow-md border border-slate-700/80 relative overflow-hidden animate-in fade-in duration-200">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                      VoxFlow AI Business Insight
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      Query: &ldquo;{activeInsight.query}&rdquo;
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold text-white mt-1 whitespace-pre-line leading-relaxed font-sans">
+                    {activeInsight.answer}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveInsight(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition"
+                title="Dismiss insight"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {activeTab === "live" && (
           <LiveFeedTab
             transactions={transactions}
@@ -282,6 +406,7 @@ export default function Home() {
       <VoiceDock
         customers={customers}
         inventory={inventory}
+        transactions={transactions}
         onVoiceSuccess={handleVoiceSuccess}
         isListening={isListening}
         setIsListening={setIsListening}

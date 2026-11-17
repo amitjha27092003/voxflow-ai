@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { Customer, InventoryItem, VoiceProcessResponse, VoiceAction, VoiceActionItem } from "@/types";
+import { Customer, InventoryItem, Transaction, VoiceProcessResponse, VoiceAction, VoiceActionItem } from "@/types";
 
 export async function POST(req: NextRequest) {
   let body: any = {};
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { transcript, customers = [], inventory = [] } = body;
+  const { transcript, customers = [], inventory = [], transactions = [] } = body;
 
   if (!transcript || typeof transcript !== "string" || transcript.trim() === "") {
     return NextResponse.json(
@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
 
   if (apiKey) {
     const genAI = new GoogleGenerativeAI(apiKey);
-    // User requested gemini-2.5-flash with fallback to gemini-2.0-flash
     const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 
     const systemInstruction = `
@@ -48,20 +47,20 @@ You are VoxFlow AI, a state-of-the-art Voice Ledger & Retail Copilot for Indian 
 Your job is to parse spoken voice commands into structured JSON for an Udhaar Khata (Credit Ledger) and Inventory system.
 
 LANGUAGE SUPPORT:
-The user speaks in Hindi or Hinglish. Voice recognition may output:
-1. Devanagari Hindi script (e.g., "अंकित को 2 किलो चीनी और एक अमूल बटर उधार लिख दो", "राहुल के 500 रुपये जमा कर लो", "आज किसका उधार बाकी है?")
-2. Roman Hinglish script (e.g., "Ankit ko 2 kilo cheeni aur 1 Amul butter udhaar likh do", "Rahul ke 500 rupaye jama kar le")
-3. Mixed script
+User commands may be in:
+1. Devanagari Hindi script (e.g. "अंकित को 2 किलो चीनी और एक अमूल बटर उधार लिख दो", "पिछली एंट्री कैंसिल कर दो", "आज का हिसाब बताओ", "सबसे ज्यादा उधार किसका बाकी है?")
+2. Roman Hinglish script (e.g. "Ankit ko 2 kilo cheeni aur 1 Amul butter udhaar likh do", "pichli entry cancel kar do", "Aaj ka hisaab batao", "Sabse zyada udhaar kiska baaki hai?")
+3. English or mixed script
 
-Current Merchant Context:
-- Registered Customers:
+Current Store State:
+- Customers:
 ${JSON.stringify(
   customers.map((c: Customer) => ({ name: c.name, balance: c.balance })),
   null,
   2
 )}
 
-- Store Inventory Catalog:
+- Inventory:
 ${JSON.stringify(
   inventory.map((i: InventoryItem) => ({
     name: i.name,
@@ -73,50 +72,45 @@ ${JSON.stringify(
   2
 )}
 
-RULES:
-1. Customer Names (Always in Clean English):
-   - Output customer names in clean English / Roman alphabet with Title Case.
-   - If spoken in Devanagari, transliterate accurately to English:
-     "अंकित" -> "Ankit"
-     "शर्मा जी" / "शर्मा" -> "Sharma Ji"
-     "राहुल" / "राहुल वर्मा" -> "Rahul Verma"
-     "सुनीता" / "सुनीता देवी" -> "Sunita Devi"
-     "गुप्ता जी" / "गुप्ता" -> "Gupta General Store"
-     "रमेश" -> "Ramesh"
-     "प्रिया" -> "Priya Singh"
-   - Match existing customer names fuzzily. If a customer is not registered, create their English name.
+- Recent Transactions Count: ${transactions.length}
+${transactions.length > 0 ? `Most recent transaction: ${JSON.stringify(transactions[0])}` : ""}
 
-2. Item & Price Resolution (Devanagari & Roman):
-   - Map Hindi and English item names accurately to the Inventory Catalog:
-     * "चीनी" / "chini" / "cheeni" / "sugar" / "शक्कर" -> "Cheeni / Sugar" (Price: ₹44/kg)
-     * "अमूल बटर" / "बटर" / "मक्खन" / "butter" / "makhan" -> "Amul Butter" (Price: ₹56/pack)
-     * "आटा" / "atta" / "aata" / "गेहूं का आटा" -> "Aashirvaad Atta" (Price: ₹45/kg)
-     * "तेल" / "फॉर्च्यून तेल" / "tel" / "oil" / "fortune" -> "Fortune Sunflower Oil" (Price: ₹135/L)
-     * "दाल" / "तूर दाल" / "अरहर दाल" / "dal" / "daal" / "toor" -> "Toor Dal" (Price: ₹160/kg)
-     * "नमक" / "टाटा नमक" / "salt" / "namak" -> "Tata Salt" (Price: ₹28/kg)
-     * "मैगी" / "नूडल्स" / "maggi" / "noodles" -> "Maggi Noodles" (Price: ₹14/pack)
-     * "चाय" / "चाय पत्ती" / "tea" / "chai" / "red label" -> "Red Label Tea" (Price: ₹140/pack)
-   - Parse quantities whether spoken as digits or Hindi words ("एक" = 1, "दो" = 2, "तीन" = 3, "चार" = 4, "पांच" = 5, "आधा" = 0.5, "डेढ़" = 1.5).
-   - CRITICAL: Calculate each item total = qty * unit_price.
-   - Sum all item totals to calculate the action's total_amount.
-     Example: "2 किलो चीनी और एक अमूल बटर" -> (2 * 44) + (1 * 56) = 88 + 56 = ₹144. NEVER extract "2" as ₹2!
+INTENTS:
+1. "UNDO_LAST":
+   - Triggered when user asks to cancel, delete, undo, or reverse the last entry.
+   - Phrases: "pichli entry cancel kar do", "last entry delete karo", "undo", "cancel last entry", "pichli entry hata do", "पिछली एंट्री कैंसिल कर दो", "पिछला हटाओ", "गलत लिख दिया".
+   - Return intent: "UNDO_LAST", actions: [], voice_response_hi: "Pichli entry cancel kar di gayi hai.", query_answer_hi: "The most recent transaction has been cancelled and reversed."
 
-3. Transaction Types:
-   - "UDHAAR" (उधार, लिख दो, ले गया, खाते में डालो) -> Credit given.
-   - "JAMA" (जमा, दिए, चुकाए, पेमेंट, नकद) -> Payment received. For pure cash payments (e.g., "500 रुपये जमा"), items is [] and total_amount is 500.
+2. "QUERY":
+   - Triggered for analytical or ledger questions:
+     * "Sabse zyada udhaar kiska baaki hai?" / "highest debtor": identify the customer with the highest positive balance.
+     * "Kaun sa samaan kam hai?" / "low stock": list inventory items where stock <= 5 units.
+     * "Aaj ka hisaab batao" / "today's summary": summarize total sales, collections, and total credit.
+     * "Aaj kiska udhaar baaki hai?": list all customers with balance > 0.
+     * Specific customer balance questions (e.g., "Sharma ji ka kitna baaki hai?").
+   - Set intent: "QUERY", actions: [], query_answer_hi: detailed English summary, voice_response_hi: spoken Hinglish answer under 15 words.
 
-4. Voice Response ('voice_response_hi'):
-   - Output natural spoken Hinglish/Hindi under 15 words.
-   - Example: "Ankit ke 144 rupaye udhaar darj ho gaye."
-   - Example: "Rahul ke 500 rupaye jama darj ho gaye."
+3. "TRANSACTION":
+   - Record UDHAAR (credit given) or JAMA (payment received).
+   - Convert Devanagari customer names to clean English ("अंकित" -> "Ankit").
+   - Map items accurately to inventory names:
+     * चीनी / cheeni / sugar -> "Cheeni / Sugar" (₹44/kg)
+     * अमूल बटर / butter -> "Amul Butter" (₹56/pack)
+     * आटा / atta -> "Aashirvaad Atta" (₹45/kg)
+     * तेल / tel / oil -> "Fortune Sunflower Oil" (₹135/L)
+     * दाल / dal / toor -> "Toor Dal" (₹160/kg)
+     * नमक / salt -> "Tata Salt" (₹28/kg)
+     * मैगी / maggi -> "Maggi Noodles" (₹14/pack)
+     * चाय / tea -> "Red Label Tea" (₹140/pack)
+   - Compute exact totals: qty * unit_price. Sum all items for total_amount.
+   - voice_response_hi: e.g. "Ankit ke 144 rupaye udhaar darj ho gaye."
 
-5. Queries:
-   - For queries like "किसका उधार बाकी है?", "आज किसका उधार बाकी है?", "Sharma ji ka kitna baaki hai?":
-     Set intent: "QUERY", actions: [], query_answer_hi: clean English summary, voice_response_hi: spoken Hinglish answer.
+4. "CLARIFICATION_NEEDED":
+   - If audio is unclear or neither items nor amounts can be determined.
 
 Output JSON Schema:
 {
-  "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED",
+  "intent": "TRANSACTION" | "QUERY" | "CLARIFICATION_NEEDED" | "UNDO_LAST",
   "confidence": number,
   "clarification_question_hi": string | null,
   "voice_response_hi": string,
@@ -151,7 +145,6 @@ Output JSON Schema:
 
         const prompt = `${systemInstruction}\n\nSpoken Merchant Voice Transcript: "${transcript}"\nGenerate the JSON output:`;
 
-        // 8-second timeout for reliable mobile response
         const generatePromise = model.generateContent(prompt);
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`Timeout with ${modelName}`)), 8000)
@@ -177,8 +170,8 @@ Output JSON Schema:
     } as VoiceProcessResponse);
   }
 
-  // Fallback parser handling BOTH Devanagari Hindi and Roman Hinglish
-  const parsedResponse = parseBilingualLocally(transcript, customers, inventory);
+  // Fallback parser handling UNDO_LAST, Conversational Analytics, and Transactions
+  const parsedResponse = parseBilingualLocally(transcript, customers, inventory, transactions);
   return NextResponse.json(parsedResponse);
 }
 
@@ -186,13 +179,162 @@ Output JSON Schema:
 function parseBilingualLocally(
   transcript: string,
   customers: Customer[],
-  inventory: InventoryItem[]
+  inventory: InventoryItem[],
+  transactions: Transaction[]
 ): VoiceProcessResponse {
   const text = transcript.trim();
   const lower = text.toLowerCase();
 
-  // 1. QUERY INTENT (Devanagari or Roman)
-  const isQuery =
+  // 1. UNDO_LAST INTENT
+  const isUndo =
+    lower.includes("cancel") ||
+    lower.includes("undo") ||
+    lower.includes("pichli entry") ||
+    lower.includes("last entry") ||
+    lower.includes("hata do") ||
+    lower.includes("delete") ||
+    text.includes("कैंसिल") ||
+    text.includes("हटाओ") ||
+    text.includes("पिछली एंट्री") ||
+    text.includes("गलत लिख दिया") ||
+    text.includes("रद्द करो");
+
+  if (isUndo && (lower.includes("entry") || lower.includes("last") || lower.includes("pichli") || lower.includes("undo") || text.includes("एंट्री") || text.includes("पिछली") || text.includes("हटाओ"))) {
+    return {
+      intent: "UNDO_LAST",
+      confidence: 0.98,
+      clarification_question_hi: null,
+      voice_response_hi: "Pichli entry cancel kar di gayi hai.",
+      actions: [],
+      query_answer_hi: "The most recent transaction has been cancelled and reversed.",
+    };
+  }
+
+  // 2. CONVERSATIONAL BUSINESS ANALYTICS (QUERY INTENT)
+  // 2A. Highest Debtor ("Sabse zyada udhaar kiska baaki hai?")
+  if (
+    lower.includes("sabse zyada") ||
+    lower.includes("highest udhaar") ||
+    lower.includes("max udhaar") ||
+    lower.includes("sabse bada udhaar") ||
+    text.includes("सबसे ज्यादा उधार") ||
+    text.includes("सबसे बड़ा उधार")
+  ) {
+    const overdue = [...customers].filter((c) => c.balance > 0).sort((a, b) => b.balance - a.balance);
+    if (overdue.length > 0) {
+      const top = overdue[0];
+      return {
+        intent: "QUERY",
+        confidence: 0.98,
+        clarification_question_hi: null,
+        voice_response_hi: `${top.name} ke sabse zyada ${top.balance} rupaye baaki hain.`,
+        actions: [],
+        query_answer_hi: `Highest pending credit is ${top.name} with ₹${top.balance.toLocaleString("en-IN")} outstanding.`,
+        insight_data: {
+          type: "DEBTOR",
+          title: "Highest Pending Udhaar",
+          metrics: { name: top.name, amount: top.balance },
+        },
+      };
+    } else {
+      return {
+        intent: "QUERY",
+        confidence: 0.95,
+        clarification_question_hi: null,
+        voice_response_hi: "Kisi bhi grahak ka udhaar baaki nahi hai.",
+        actions: [],
+        query_answer_hi: "All customer accounts are settled. No pending credit balances.",
+      };
+    }
+  }
+
+  // 2B. Low Stock Query ("Kaun sa samaan kam hai?")
+  if (
+    lower.includes("kaun sa samaan") ||
+    lower.includes("samaan kam") ||
+    lower.includes("stock kam") ||
+    lower.includes("low stock") ||
+    lower.includes("kya khatam") ||
+    text.includes("कौन सा सामान कम") ||
+    text.includes("स्टॉक कम") ||
+    text.includes("सामान कम है")
+  ) {
+    const lowStock = inventory.filter((i) => i.stock <= 5);
+    if (lowStock.length > 0) {
+      const names = lowStock.map((i) => `${i.name} (${i.stock} ${i.unit})`).join(", ");
+      const spokenNames = lowStock.map((i) => i.name).slice(0, 3).join(" aur ");
+      return {
+        intent: "QUERY",
+        confidence: 0.98,
+        clarification_question_hi: null,
+        voice_response_hi: `${spokenNames} ka stock 5 se kam bacha hai.`,
+        actions: [],
+        query_answer_hi: `${lowStock.length} items are running low on stock:\n${names}`,
+        insight_data: {
+          type: "INVENTORY",
+          title: "Low Stock Alert",
+          metrics: { count: lowStock.length, items: lowStock.map((i) => i.name) },
+        },
+      };
+    } else {
+      return {
+        intent: "QUERY",
+        confidence: 0.95,
+        clarification_question_hi: null,
+        voice_response_hi: "Sabhi samaan ka stock paryapt hai.",
+        actions: [],
+        query_answer_hi: "All products currently have healthy inventory levels (> 5 units).",
+      };
+    }
+  }
+
+  // 2C. Day Summary ("Aaj ka hisaab batao")
+  if (
+    lower.includes("aaj ka hisaab") ||
+    lower.includes("today summary") ||
+    lower.includes("aaj ki bikri") ||
+    lower.includes("day summary") ||
+    text.includes("आज का हिसाब") ||
+    text.includes("आज की बिक्री") ||
+    text.includes("आज का हिसाब बताओ")
+  ) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayTxs = transactions.filter(
+      (t) => new Date(t.timestamp).getTime() >= todayStart.getTime()
+    );
+
+    const todaySales = todayTxs
+      .filter((t) => t.type === "UDHAAR")
+      .reduce((acc, t) => acc + t.totalAmount, 0);
+
+    const todayJama = todayTxs
+      .filter((t) => t.type === "JAMA")
+      .reduce((acc, t) => acc + t.totalAmount, 0);
+
+    const totalUdhaar = customers.reduce(
+      (acc, c) => acc + (c.balance > 0 ? c.balance : 0),
+      0
+    );
+
+    return {
+      intent: "QUERY",
+      confidence: 0.98,
+      clarification_question_hi: null,
+      voice_response_hi: `Aaj ki bikri ${todaySales} rupaye aur jama ${todayJama} rupaye hai.`,
+      actions: [],
+      query_answer_hi: `Today's Ledger Summary:\n• Today's Revenue: ₹${todaySales.toLocaleString("en-IN")}\n• Collected Today: ₹${todayJama.toLocaleString("en-IN")}\n• Total Pending Credit: ₹${totalUdhaar.toLocaleString("en-IN")}`,
+      insight_data: {
+        type: "SUMMARY",
+        title: "Daily Ledger Summary",
+        metrics: { sales: todaySales, collected: todayJama, pendingUdhaar: totalUdhaar },
+      },
+    };
+  }
+
+  // 2D. General Udhaar Query ("Aaj kiska udhaar baaki hai?")
+  const isGeneralQuery =
     lower.includes("kiska udhaar") ||
     lower.includes("baaki hai") ||
     lower.includes("udhar baaki") ||
@@ -203,8 +345,7 @@ function parseBilingualLocally(
     text.includes("बाकी है") ||
     text.includes("किस-किस का");
 
-  if (isQuery) {
-    // Specific customer check
+  if (isGeneralQuery) {
     for (const c of customers) {
       const first = c.name.toLowerCase().split(" ")[0];
       if (lower.includes(first) || text.includes(c.name)) {
@@ -233,10 +374,9 @@ function parseBilingualLocally(
     };
   }
 
-  // 2. Resolve Customer Name (Devanagari + Roman)
+  // 3. Resolve Customer Name (Devanagari + Roman)
   let customerName = "Walk-in Customer";
 
-  // Check known customers
   if (text.includes("अंकित") || lower.includes("ankit")) {
     customerName = "Ankit";
   } else if (text.includes("शर्मा") || lower.includes("sharma")) {
@@ -252,7 +392,6 @@ function parseBilingualLocally(
   } else if (text.includes("रमेश") || lower.includes("ramesh")) {
     customerName = "Ramesh Kumar";
   } else {
-    // Try regex extraction from "X को" or "X के"
     const hindiNameMatch = text.match(/^([^\s]+)\s+(?:को|के|ने|का)/);
     if (hindiNameMatch && hindiNameMatch[1]) {
       customerName = hindiNameMatch[1];
@@ -296,11 +435,10 @@ function parseBilingualLocally(
     };
   }
 
-  // 3. Match Catalog Items (Devanagari & Roman)
+  // 4. Match Catalog Items (Devanagari & Roman)
   const items: VoiceActionItem[] = [];
   let totalAmount = 0;
 
-  // Helper to parse quantities (digits or words)
   const getQty = (regexStr: string, defaultQty: number = 1): number => {
     const match = text.match(new RegExp(regexStr, "i"));
     if (!match) return defaultQty;
@@ -386,7 +524,6 @@ function parseBilingualLocally(
     totalAmount += total;
   }
 
-  // If no catalog items were recognized, DO NOT extract arbitrary quantities as price!
   if (items.length === 0) {
     return {
       intent: "CLARIFICATION_NEEDED",

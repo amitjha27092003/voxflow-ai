@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Customer, InventoryItem, VoiceProcessResponse } from "@/types";
+import { Customer, InventoryItem, Transaction, VoiceProcessResponse } from "@/types";
 import { speakHindi } from "@/utils/speech";
 import {
   Mic,
@@ -14,12 +14,13 @@ import {
   AlertCircle,
   Send,
   X,
-  MessageSquare,
+  Undo2,
 } from "lucide-react";
 
 interface VoiceDockProps {
   customers: Customer[];
   inventory: InventoryItem[];
+  transactions: Transaction[];
   onVoiceSuccess: (response: VoiceProcessResponse, rawTranscript: string) => void;
   isListening: boolean;
   setIsListening: (val: boolean) => void;
@@ -28,13 +29,16 @@ interface VoiceDockProps {
 const DEMO_PILLS = [
   "Sharma ji ke 2 kilo aata aur 1 Amul butter udhaar likh de",
   "Rahul ke 500 rupaye jama kar le",
-  "Sunita devi ko 1 liter Fortune tel aur 1 kilo cheeni udhaar",
-  "Aaj kiska udhaar baaki hai?",
+  "Pichli entry cancel kar do",
+  "Sabse zyada udhaar kiska baaki hai?",
+  "Kaun sa samaan kam hai?",
+  "Aaj ka hisaab batao",
 ];
 
 export const VoiceDock: React.FC<VoiceDockProps> = ({
   customers,
   inventory,
+  transactions,
   onVoiceSuccess,
   isListening,
   setIsListening,
@@ -144,6 +148,7 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
           transcript: transcriptText,
           customers,
           inventory,
+          transactions,
         }),
       });
 
@@ -159,8 +164,12 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
         speakHindi(data.voice_response_hi);
       }
 
-      // Update state if intent is TRANSACTION
-      if (data.intent === "TRANSACTION" && data.actions && data.actions.length > 0) {
+      // Propagate state update if intent is TRANSACTION, UNDO_LAST, or QUERY
+      if (
+        (data.intent === "TRANSACTION" && data.actions && data.actions.length > 0) ||
+        data.intent === "UNDO_LAST" ||
+        data.intent === "QUERY"
+      ) {
         onVoiceSuccess(data, transcriptText);
       }
     } catch (err: any) {
@@ -187,7 +196,7 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 pb-3 sm:pb-5 pt-3 px-3 sm:px-6 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/95 to-transparent pointer-events-none">
+    <div className="fixed bottom-0 left-0 right-0 z-40 pb-4 sm:pb-6 pt-3 px-3 sm:px-6 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/95 to-transparent pointer-events-none">
       <div className="max-w-2xl mx-auto flex flex-col items-center pointer-events-auto">
         {/* Error message banner */}
         {errorMessage && (
@@ -205,12 +214,14 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
           </div>
         )}
 
-        {/* AI Voice Response Banner in 100% clean modern English UI */}
+        {/* AI Voice Response Banner */}
         {lastResponse && (
           <div
             className={`mb-3 w-full max-w-lg rounded-2xl p-4 shadow-xl border animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md ${
               lastResponse.intent === "TRANSACTION"
                 ? "bg-slate-900 text-white border-slate-800"
+                : lastResponse.intent === "UNDO_LAST"
+                ? "bg-rose-950 text-white border-rose-900/60"
                 : lastResponse.intent === "QUERY"
                 ? "bg-slate-900 text-white border-slate-800"
                 : "bg-slate-900 text-white border-slate-800"
@@ -221,6 +232,8 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
                 <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
                   {lastResponse.intent === "TRANSACTION" ? (
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  ) : lastResponse.intent === "UNDO_LAST" ? (
+                    <Undo2 className="w-4 h-4 text-rose-400" />
                   ) : lastResponse.intent === "QUERY" ? (
                     <Sparkles className="w-4 h-4 text-teal-400" />
                   ) : (
@@ -232,6 +245,8 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       {lastResponse.intent === "TRANSACTION"
                         ? "Transaction Recorded"
+                        : lastResponse.intent === "UNDO_LAST"
+                        ? "Entry Cancelled & Reverted"
                         : lastResponse.intent === "QUERY"
                         ? "AI Response"
                         : "Clarification Needed"}
@@ -276,14 +291,12 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
               {isProcessing ? (
                 <Loader2 className="w-4 h-4 text-slate-900 animate-spin shrink-0" />
               ) : isListening ? (
-                /* Sleek Animated Voice Waveform Bar */
                 <div className="flex items-center gap-1 shrink-0 h-6 px-1">
                   <span className="w-1 bg-rose-500 rounded-full wave-bar-1" />
                   <span className="w-1 bg-rose-500 rounded-full wave-bar-2" />
                   <span className="w-1 bg-rose-500 rounded-full wave-bar-3" />
                   <span className="w-1 bg-rose-500 rounded-full wave-bar-4" />
                   <span className="w-1 bg-rose-500 rounded-full wave-bar-5" />
-                  <span className="w-1 bg-rose-500 rounded-full wave-bar-6" />
                 </div>
               ) : (
                 <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -311,9 +324,19 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
               key={idx}
               onClick={() => handlePillClick(pill)}
               disabled={isProcessing}
-              className="whitespace-nowrap px-3 py-1 text-xs font-medium bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200/90 rounded-full shadow-xs active:scale-95 transition shrink-0 disabled:opacity-40 flex items-center gap-1.5"
+              className={`whitespace-nowrap px-3 py-1 text-xs font-medium rounded-full shadow-xs active:scale-95 transition shrink-0 disabled:opacity-40 flex items-center gap-1.5 border ${
+                pill.includes("cancel")
+                  ? "bg-rose-50 text-rose-700 border-rose-200/80 hover:bg-rose-100"
+                  : pill.includes("hisaab") || pill.includes("zyada") || pill.includes("kam")
+                  ? "bg-teal-50 text-teal-800 border-teal-200/80 hover:bg-teal-100"
+                  : "bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border-slate-200/90"
+              }`}
             >
-              <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+              {pill.includes("cancel") ? (
+                <Undo2 className="w-3 h-3 text-rose-500 shrink-0" />
+              ) : (
+                <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+              )}
               <span>{pill}</span>
             </button>
           ))}
@@ -330,7 +353,7 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
             <Send className="w-3.5 h-3.5" />
           </button>
 
-          {/* Sleek Silicon Valley Microphone Trigger */}
+          {/* Sleek Silicon Valley Microphone Trigger with Animated 5-Bar Waveform */}
           <button
             onClick={isListening ? stopListening : startListening}
             disabled={isProcessing}
@@ -363,12 +386,14 @@ export const VoiceDock: React.FC<VoiceDockProps> = ({
               </div>
             </div>
 
-            {/* Waveform mini visualizer on button right when active */}
+            {/* Animated 5-Bar CSS Audio Equalizer Waveform inside the button while listening */}
             {isListening && (
-              <div className="flex items-center gap-0.5 h-4 ml-1">
-                <span className="w-0.5 bg-white/80 rounded-full wave-bar-1" />
-                <span className="w-0.5 bg-white/80 rounded-full wave-bar-3" />
-                <span className="w-0.5 bg-white/80 rounded-full wave-bar-5" />
+              <div className="flex items-center gap-1 h-5 px-1 ml-2 shrink-0">
+                <span className="w-1 bg-white rounded-full wave-bar-1" />
+                <span className="w-1 bg-white rounded-full wave-bar-2" />
+                <span className="w-1 bg-white rounded-full wave-bar-3" />
+                <span className="w-1 bg-white rounded-full wave-bar-4" />
+                <span className="w-1 bg-white rounded-full wave-bar-5" />
               </div>
             )}
           </button>
