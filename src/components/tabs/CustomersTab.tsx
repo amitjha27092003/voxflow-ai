@@ -64,10 +64,17 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
     e.preventDefault();
     if (!newName.trim()) return;
 
+    let cleanPhone = newPhone.trim().replace(/[^0-9]/g, "");
+    if (cleanPhone.length === 10) {
+      cleanPhone = "91" + cleanPhone;
+    } else if (!cleanPhone) {
+      cleanPhone = "919876543200";
+    }
+
     const newCust: Customer = {
       id: "cust-" + Date.now(),
       name: newName.trim(),
-      phone: newPhone.trim() || "919876543200",
+      phone: cleanPhone,
       balance: parseFloat(newBalance) || 0,
       lastActivity: new Date().toISOString(),
     };

@@ -143,7 +143,7 @@ ${txLines}
 ${upiLink}
 
 UPI ID: *guptakirana@upi*
-🏪 Gupta Kirana Store, Shop #12, Main Market
+🏬 Gupta Kirana Store, Shop #12, Main Market
 📞 Store Helpline: +91 98765 43210
 
 _Thank you for your business! Powered by VoxFlow AI_`;
@@ -179,11 +179,39 @@ ${itemsList}
 _Powered by VoxFlow AI Retail Copilot_`;
 }
 
+/**
+ * Opens WhatsApp link intelligently:
+ * 1. For pre-seeded dummy demo numbers (e.g. starting with 9198765432 or 98765432),
+ *    opens https://wa.me/?text=... without a phone number so WhatsApp launches
+ *    its native Contact Picker for 1-tap sharing to any real WhatsApp contact during live demos.
+ * 2. For real mobile numbers (10-digit or 12-digit Indian), opens https://wa.me/91${phone}?text=...
+ *    directly into that customer's chat without "Phone number is not on WhatsApp" error.
+ */
 export function openWhatsAppLink(phone: string, text: string) {
-  let cleanPhone = phone.replace(/[^0-9]/g, "");
+  const rawDigits = (phone || "").replace(/[^0-9]/g, "");
+  const encodedText = encodeURIComponent(text);
+
+  // Check if this is a dummy/seeded demo phone number
+  const isDummyNumber =
+    !rawDigits ||
+    rawDigits.startsWith("9198765432") ||
+    rawDigits.startsWith("98765432") ||
+    rawDigits === "919876543210" ||
+    rawDigits === "919876543299";
+
+  if (isDummyNumber) {
+    // Native WhatsApp Contact Picker for seamless live demo sharing
+    const url = `https://wa.me/?text=${encodedText}`;
+    window.open(url, "_blank");
+    return;
+  }
+
+  // Real user-entered phone number handling
+  let cleanPhone = rawDigits;
   if (cleanPhone.length === 10) {
     cleanPhone = "91" + cleanPhone;
   }
-  const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+
+  const url = `https://wa.me/${cleanPhone}?text=${encodedText}`;
   window.open(url, "_blank");
 }
